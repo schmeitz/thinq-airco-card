@@ -1,0 +1,6 @@
+{
+  "name": "ThinQ Airco Card",
+  "filename": "thinq-airco-card.js",
+  "render_readme": true,
+  "homeassistant": "2024.8.0"
+}
