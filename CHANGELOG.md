@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.1 — 2026-11-21
+
+- Fan speed dial: grey track, coloured only up to the selected speed (like the ThinQ app)
+- Dutch fan labels as in the app (Laag, Med, Hoog)
+
 ## 1.5.0 — 2026-11-21
 
 - Airflow sheet like the ThinQ app: Up/Down and Left/Right pictures with rays, arrow buttons and swing switches

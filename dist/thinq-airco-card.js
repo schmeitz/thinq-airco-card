@@ -16,11 +16,11 @@
  *                                       entity overrides; found automatically on the same device.
  *                                       Set to false to hide a feature.
  */
-const LG_VERSION = '1.5.0';
+const LG_VERSION = '1.5.1';
 const LG_I18N = {
   nl: {
     'm.cool': 'Koelen', 'm.dry': 'Ontvochtigen', 'm.fan_only': 'Ventilator', 'm.heat': 'Warmte', 'm.heat_cool': 'Auto', 'm.auto': 'Auto', 'm.__on': 'Inschakelen…',
-    'f.low': 'Laag', 'f.LOW_MID': 'Laag-midden', 'f.medium': 'Midden', 'f.MID_HIGH': 'Midden-hoog', 'f.high': 'Hoog', 'f.diffuse': 'Auto', 'f.auto': 'Auto',
+    'f.low': 'Laag', 'f.LOW_MID': 'Laag-med', 'f.medium': 'Med', 'f.MID_HIGH': 'Med-hoog', 'f.high': 'Hoog', 'f.diffuse': 'Auto', 'f.auto': 'Auto',
     'f.SLOW': 'Zeer laag', 'f.SLOW_LOW': 'Zeer laag-laag', 'f.POWER': 'Turbo',
     'v.Off': 'Vast', 'v.Top': 'Boven', 'v.MiddleTop1': 'Stand 2', 'v.MiddleTop2': 'Stand 3', 'v.MiddleBottom2': 'Stand 4', 'v.MiddleBottom1': 'Stand 5', 'v.Bottom': 'Onder', 'v.Swing': 'Zwenken',
     'h.Off': 'Vast', 'h.Left': 'Links', 'h.MiddleLeft': 'Midden-links', 'h.Center': 'Midden', 'h.MiddleRight': 'Midden-rechts', 'h.Right': 'Rechts',
@@ -196,18 +196,29 @@ const lgFanPos = (n, i) => {
   const g = LG_FAN_GEO, deg = g.a0 + (n > 1 ? (i * g.span) / (n - 1) : g.span / 2), a = (deg * Math.PI) / 180;
   return [+(g.cx + Math.cos(a) * g.r).toFixed(1), +(g.cy + Math.sin(a) * g.r).toFixed(1)];
 };
+// boogpad van het begin tot stap i (i = -1: geen gekleurd deel)
+const lgFanArcD = (n, i) => {
+  const g = LG_FAN_GEO, rad = (d) => (d * Math.PI) / 180;
+  if (i < 0) return '';
+  const end = g.a0 + (n > 1 ? (i * g.span) / (n - 1) : g.span / 2) + 0.01;
+  const sx = g.cx + Math.cos(rad(g.a0)) * g.r, sy = g.cy + Math.sin(rad(g.a0)) * g.r;
+  const ex = g.cx + Math.cos(rad(end)) * g.r, ey = g.cy + Math.sin(rad(end)) * g.r;
+  return `M${sx.toFixed(1)} ${sy.toFixed(1)} A${g.r} ${g.r} 0 ${end - g.a0 > 180 ? 1 : 0} 1 ${ex.toFixed(1)} ${ey.toFixed(1)}`;
+};
 function lgFanPic(n, idx, isAuto, labels, center) {
   const g = LG_FAN_GEO, rad = (d) => (d * Math.PI) / 180;
   const sx = g.cx + Math.cos(rad(g.a0)) * g.r, sy = g.cy + Math.sin(rad(g.a0)) * g.r;
   const ex = g.cx + Math.cos(rad(g.a0 + g.span)) * g.r, ey = g.cy + Math.sin(rad(g.a0 + g.span)) * g.r;
   let dots = '';
-  for (let i = 0; i < n; i++) { const [x, y] = lgFanPos(n, i); dots += `<circle cx="${x}" cy="${y}" r="4"/>`; }
+  for (let i = 0; i < n; i++) { const [x, y] = lgFanPos(n, i); dots += `<circle class="${idx >= 0 && i <= idx ? 'lit' : ''}" cx="${x}" cy="${y}" r="4"/>`; }
   const [tx, ty] = idx >= 0 ? lgFanPos(n, idx) : [g.cx, g.cy];
   const [lx0, ly0] = lgFanPos(n, 0), [lx1, ly1] = lgFanPos(n, n - 1);
+  // grijze boog over de hele lengte, gekleurd deel van "laag" tot de ingestelde stand (zoals de ThinQ-app)
   return `<svg class="fanpic${isAuto ? ' auto' : ''}" viewBox="0 0 300 300">
     <defs><linearGradient id="fg" gradientUnits="userSpaceOnUse" x1="40" y1="0" x2="260" y2="0"><stop offset="0" stop-color="#edbb5f"/><stop offset="1" stop-color="#df6d48"/></linearGradient></defs>
-    <path class="arc" d="M${sx.toFixed(1)} ${sy.toFixed(1)} A${g.r} ${g.r} 0 1 1 ${ex.toFixed(1)} ${ey.toFixed(1)}" stroke="url(#fg)" stroke-width="${g.w}" stroke-linecap="round" fill="none"/>
-    <g class="dots" fill="#fff">${dots}</g>
+    <path class="arc" d="M${sx.toFixed(1)} ${sy.toFixed(1)} A${g.r} ${g.r} 0 1 1 ${ex.toFixed(1)} ${ey.toFixed(1)}" stroke-width="${g.w}" stroke-linecap="round" fill="none"/>
+    <path class="prog" d="${lgFanArcD(n, isAuto ? -1 : idx)}" stroke="url(#fg)" stroke-width="${g.w}" stroke-linecap="round" fill="none"/>
+    <g class="dots">${dots}</g>
     <circle class="thumb" cx="${tx}" cy="${ty}" r="25" ${idx >= 0 ? '' : 'style="display:none"'}/>
     <text class="ctext" x="${g.cx}" y="${g.cy + 4}" style="font-size:${lgFanFont(center)}px">${lgEsc(center)}</text>
     <text class="lab" x="${lx0}" y="${ly0 + 52}">${lgEsc(labels[0])}</text>
@@ -412,8 +423,12 @@ dialog.bsheet::backdrop { background: rgba(0,0,0,.55); }
 .fanpic { width: 100%; max-width: 320px; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; }
 .fanpic .lab { fill:#c4c5cc; font-size: 17px; text-anchor: middle; }
 .fanpic .ctext { fill: currentColor; font-size: 40px; text-anchor: middle; dominant-baseline: middle; }
-.fanpic .thumb { fill:#cf613d; stroke: rgba(255,255,255,.28); stroke-width: 3; }
-.fanpic.auto .arc, .fanpic.auto .dots { opacity: .3; }
+.fanpic .arc { stroke:#46474c; }
+.fanpic .dots circle { fill:#7d7e84; }
+.fanpic .dots circle.lit { fill:#fff; }
+.fanpic .thumb { fill: rgba(150, 80, 40, .28); stroke: rgba(255,255,255,.12); stroke-width: 2; }
+.fanpic.auto .dots { opacity: .6; }
+:host([bg=theme]) .fanpic .arc { stroke: var(--secondary-background-color, #46474c); }
 .fanpm { display:flex; justify-content:space-between; width: 100%; max-width: 330px; margin-top: -4px; }
 .fanpm .round:disabled { opacity: .35; cursor: default; }
 .autorow { display:flex; align-items:center; justify-content:center; gap: 16px; margin-top: 16px; font-size: 18px; }
@@ -943,6 +958,8 @@ class LgAircoPanel extends HTMLElement {
     const live = (i) => {
       const [x, y] = lgFanPos(n, i);
       const th = svg.querySelector('.thumb'); th.setAttribute('cx', x); th.setAttribute('cy', y); th.style.display = '';
+      svg.querySelector('.prog').setAttribute('d', lgFanArcD(n, i));
+      svg.querySelectorAll('.dots circle').forEach((c, k) => c.classList.toggle('lit', k <= i));
       const ct = svg.querySelector('.ctext'), txt = LG_FAN[manual[i]] || manual[i];
       ct.textContent = txt; ct.style.fontSize = `${lgFanFont(txt)}px`;
       svg.classList.remove('auto');
