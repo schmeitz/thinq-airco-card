@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0 — 2026-11-21
+
+- Airflow sheet with pictograms per louvre position (up/down side view, left/right top view, swing fans)
+
 ## 1.2.0 — 2026-11-21
 
 First public release.

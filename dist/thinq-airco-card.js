@@ -16,7 +16,7 @@
  *                                       entity overrides; found automatically on the same device.
  *                                       Set to false to hide a feature.
  */
-const LG_VERSION = '1.2.0';
+const LG_VERSION = '1.3.0';
 const LG_I18N = {
   nl: {
     'm.cool': 'Koelen', 'm.dry': 'Ontvochtigen', 'm.fan_only': 'Ventilator', 'm.heat': 'Warmte', 'm.heat_cool': 'Auto', 'm.auto': 'Auto', 'm.__on': 'Inschakelen…',
@@ -122,6 +122,54 @@ function lgRelated(hass, config) {
     out[k] = config[k] || ids.find((id) => r.test(id)) || null;
   }
   return out;
+}
+
+/* Pictogram per lamelstand.
+   k = 'v' (op en neer): zijaanzicht, airco aan de muur links, pijl steeds steiler naar beneden.
+   k = 'h' (links en rechts): bovenaanzicht, airco boven, pijl naar links/midden/rechts. */
+function lgFlowSvg(k, v) {
+  const rad = (d) => (d * Math.PI) / 180;
+  const arrow = (x, y, ang, len, cls = '') => {
+    // ang in graden: 0 = recht omlaag (h) of horizontaal (v) — omgerekend door de aanroeper
+    const ex = x + Math.cos(rad(ang)) * len, ey = y + Math.sin(rad(ang)) * len;
+    const a1 = rad(ang + 150), a2 = rad(ang - 150), hl = 6;
+    return `<g class="${cls}"><line x1="${x}" y1="${y}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}"/>`
+      + `<polyline points="${(ex + Math.cos(a1) * hl).toFixed(1)},${(ey + Math.sin(a1) * hl).toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)} ${(ex + Math.cos(a2) * hl).toFixed(1)},${(ey + Math.sin(a2) * hl).toFixed(1)}"/></g>`;
+  };
+  const fan = (x, y, from, to, len) => {
+    let s = '';
+    for (const a of [from, (from + to) / 2, to]) {
+      const ex = x + Math.cos(rad(a)) * len, ey = y + Math.sin(rad(a)) * len;
+      s += `<line class="fz" x1="${x}" y1="${y}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}"/>`;
+    }
+    const r = len + 3, sx = x + Math.cos(rad(from)) * r, sy = y + Math.sin(rad(from)) * r;
+    const ex = x + Math.cos(rad(to)) * r, ey = y + Math.sin(rad(to)) * r;
+    const large = Math.abs(to - from) > 180 ? 1 : 0, sweep = to > from ? 1 : 0;
+    const ah = (px, py, ang) => { const a1 = rad(ang + 145), a2 = rad(ang - 145), z = 4.2; return `<polyline points="${(px + Math.cos(a1) * z).toFixed(1)},${(py + Math.sin(a1) * z).toFixed(1)} ${px.toFixed(1)},${py.toFixed(1)} ${(px + Math.cos(a2) * z).toFixed(1)},${(py + Math.sin(a2) * z).toFixed(1)}"/>`; };
+    s += `<path d="M${sx.toFixed(1)} ${sy.toFixed(1)} A${r} ${r} 0 ${large} ${sweep} ${ex.toFixed(1)} ${ey.toFixed(1)}"/>`;
+    s += ah(ex, ey, to + (sweep ? 90 : -90)) + ah(sx, sy, from + (sweep ? -90 : 90));
+    return s;
+  };
+  const pin = (x, y) => `<circle cx="${x}" cy="${y}" r="2.6" fill="currentColor" stroke="none"/>`;
+  let body = '';
+  if (k === 'v') {
+    body = `<line x1="4" y1="2" x2="4" y2="38" class="fz"/><rect x="4" y="5" width="13" height="8" rx="2" fill="currentColor" stroke="none" opacity=".85"/>`;
+    const ox = 15, oy = 15;
+    const ang = { Top: 12, MiddleTop1: 26, MiddleTop2: 40, MiddleBottom2: 54, MiddleBottom1: 68, Bottom: 82 }[v];
+    if (ang !== undefined) body += arrow(ox, oy, ang, 26);
+    else if (v === 'Swing') body += fan(ox, oy, 12, 82, 22);
+    else body += arrow(ox, oy, 40, 24) + pin(ox, oy);
+  } else {
+    body = `<rect x="11" y="3" width="24" height="7" rx="2" fill="currentColor" stroke="none" opacity=".85"/>`;
+    const ox = 23, oy = 12;
+    const ang = { Left: 140, MiddleLeft: 115, Center: 90, MiddleRight: 65, Right: 40 }[v];
+    if (ang !== undefined) body += arrow(ox, oy, ang, 24);
+    else if (v === 'LeftHalf') body += fan(ox, oy, 90, 140, 21);
+    else if (v === 'RightHalf') body += fan(ox, oy, 40, 90, 21);
+    else if (v === 'Swing') body += fan(ox, oy, 40, 140, 21);
+    else body += arrow(ox, oy, 90, 22) + pin(ox, oy);
+  }
+  return `<svg viewBox="0 0 46 41" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
 }
 
 function lgCurrentTemp(hass, config, s) {
@@ -310,9 +358,14 @@ dialog.bsheet::backdrop { background: rgba(0,0,0,.55); }
 .opt.sel .chk { visibility: visible; }
 .opt .mi { --mdc-icon-size: 28px; }
 .sub-h { color: var(--sub); font-size: 15px; margin: 16px 4px 8px; }
-.chips { display:flex; flex-wrap:wrap; gap: 8px; }
-.chip { border:none; background:#2e2f34; color:#e6e6ea; font: inherit; font-size: 16px; padding: 11px 16px; border-radius: 20px; cursor:pointer; }
+.chips { display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.chip { border:none; background:#2e2f34; color:#d6d7dc; font: inherit; font-size: 13px; line-height: 1.2; padding: 10px 4px 9px; border-radius: 18px; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; gap: 5px; min-height: 84px; justify-content:center; transition: background .15s, color .15s; }
+.chip svg { width: 46px; height: 38px; display:block; }
+.chip .fz { opacity: .35; }
 .chip.sel { background: var(--acc2); color:#fff; }
+.chip.sel .fz { opacity: .55; }
+@media (max-width: 360px) { .chips { grid-template-columns: repeat(3, 1fr); } }
 `;
 
 class LgAircoPanel extends HTMLElement {
@@ -740,7 +793,7 @@ class LgAircoPanel extends HTMLElement {
     } else if (kind === 'air') {
       $.bstitle.textContent = lgT('airflow');
       const vs = this._val('swing', a.swing_mode), hs = this._val('hswing', a.swing_horizontal_mode);
-      const chips = (list, map, cur, k) => `<div class="chips">${list.map((v) => `<button class="chip ${v === cur ? 'sel' : ''}" data-k="${k}" data-v="${lgEsc(v)}">${lgEsc(map[v] || v)}</button>`).join('')}</div>`;
+      const chips = (list, map, cur, k) => `<div class="chips">${list.map((v) => `<button class="chip ${v === cur ? 'sel' : ''}" data-k="${k}" data-v="${lgEsc(v)}">${lgFlowSvg(k, v)}<span>${lgEsc(map[v] || v)}</span></button>`).join('')}</div>`;
       let html = '';
       if (a.swing_modes && a.swing_modes.length) html += `<div class="sub-h">${lgT('updown')}</div>${chips(a.swing_modes, LG_VSWING, vs, 'v')}`;
       if (a.swing_horizontal_modes && a.swing_horizontal_modes.length) html += `<div class="sub-h">${lgT('leftright')}</div>${chips(a.swing_horizontal_modes, LG_HSWING, hs, 'h')}`;
