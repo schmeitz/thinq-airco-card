@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.0 — 2026-11-21
+
+- Airflow sheet like the ThinQ app: Up/Down and Left/Right pictures with rays, arrow buttons and swing switches
+- Fan speed sheet like the ThinQ app: horseshoe dial (drag or tap), − / + and Auto switch
+- Phone layout: control screen and tiles fit 360 px wide screens
+
 ## 1.4.0 — 2026-11-21
 
 - Visual editor: entity, name, layout, picture, background, language, temperature sensor and LG feature overrides

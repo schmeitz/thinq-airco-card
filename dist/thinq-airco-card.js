@@ -16,7 +16,7 @@
  *                                       entity overrides; found automatically on the same device.
  *                                       Set to false to hide a feature.
  */
-const LG_VERSION = '1.4.0';
+const LG_VERSION = '1.5.0';
 const LG_I18N = {
   nl: {
     'm.cool': 'Koelen', 'm.dry': 'Ontvochtigen', 'm.fan_only': 'Ventilator', 'm.heat': 'Warmte', 'm.heat_cool': 'Auto', 'm.auto': 'Auto', 'm.__on': 'Inschakelen…',
@@ -30,6 +30,7 @@ const LG_I18N = {
     jet_heat: 'Krachtige stroom warme lucht om de ruimte snel te verwarmen.', jet_cool: 'Krachtige stroom koude lucht om de ruimte snel te koelen.',
     filter: 'Filter', filter_clean: 'Filter schoonmaken aanbevolen', filter_life: 'Resterende levensduur', power_now: 'Stroomverbruik nu', energy_total: 'Energie totaal',
     display_light: 'Displayverlichting', wifi: 'Wifi', all_details: 'Alle details', tab_device: 'Toestel', tab_extra: 'Nuttige<br>functies',
+    v_head: 'Omhoog/Omlaag', v_swing: 'Omhoog/Omlaag zwenken', h_head: 'Links/Rechts', h_swing: 'Links/Rechts zwenken', close: 'Sluiten',
     mode_title: 'Bedieningsmodus', updown: 'Op en neer', leftright: 'Links en rechts', swing: 'Zwenken',
     sleep_after: 'De airco gaat uit na', sleep_now: 'Nu: uit over {d}. Wijzigen naar', sleep_off: 'Slaaptimer uit', sleep_left: 'Gaat uit over {d}',
     sleep_set: 'Slaaptimer: de airco gaat uit over {d}', sleep_failed: 'Slaaptimer mislukt: {e}', failed: 'Mislukt: {e}',
@@ -48,6 +49,7 @@ const LG_I18N = {
     jet_heat: 'Powerful stream of warm air to heat the room quickly.', jet_cool: 'Powerful stream of cold air to cool the room quickly.',
     filter: 'Filter', filter_clean: 'Cleaning recommended', filter_life: 'Remaining life', power_now: 'Power now', energy_total: 'Total energy',
     display_light: 'Display light', wifi: 'Wi-Fi', all_details: 'All details', tab_device: 'Device', tab_extra: 'Useful<br>features',
+    v_head: 'Up/Down', v_swing: 'Up/Down swing', h_head: 'Left/Right', h_swing: 'Left/Right swing', close: 'Close',
     mode_title: 'Operation mode', updown: 'Up and down', leftright: 'Left and right', swing: 'Swing',
     sleep_after: 'Turn the air conditioner off after', sleep_now: 'Now: off in {d}. Change to', sleep_off: 'Sleep timer off', sleep_left: 'Turns off in {d}',
     sleep_set: 'Sleep timer: turns off in {d}', sleep_failed: 'Sleep timer failed: {e}', failed: 'Failed: {e}',
@@ -170,6 +172,47 @@ function lgFlowSvg(k, v) {
     else body += arrow(ox, oy, 90, 22) + pin(ox, oy);
   }
   return `<svg viewBox="0 0 46 41" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+}
+
+/* ---- luchtstroom- en ventilatorbladen in ThinQ-stijl ---- */
+const LG_V_ORDER = ['Top', 'MiddleTop1', 'MiddleTop2', 'MiddleBottom2', 'MiddleBottom1', 'Bottom'];
+const LG_H_ORDER = ['Left', 'MiddleLeft', 'Center', 'MiddleRight', 'Right'];
+const LG_FAN_AUTO = ['diffuse', 'auto'];
+const lgRays = (cx, cy, angles, act, r1, r2, rd) => angles.map((deg, i) => {
+  const a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a), on = act[i] ? ' on' : '';
+  return `<line class="ray${on}" x1="${(cx + c * r1).toFixed(1)}" y1="${(cy + s * r1).toFixed(1)}" x2="${(cx + c * r2).toFixed(1)}" y2="${(cy + s * r2).toFixed(1)}"/>`
+    + `<circle class="dot${on}" cx="${(cx + c * rd).toFixed(1)}" cy="${(cy + s * rd).toFixed(1)}" r="3"/>`;
+}).join('');
+// zijaanzicht: airco tegen de muur rechts, 6 stralen van bijna horizontaal naar bijna verticaal
+const lgVPic = (act) => `<svg class="flowpic" viewBox="0 0 160 132"><path class="frame" d="M28 24 H116 Q122 24 122 30 V34 Q122 38 126 38 H130 Q134 38 134 42 V124"/>`
+  + `${lgRays(112, 42, [170, 156, 142, 128, 114, 100], act, 13, 74, 84)}</svg>`;
+// vooraanzicht: dak met inkeping, 5 stralen naar beneden
+const lgHPic = (act) => `<svg class="flowpic" viewBox="0 0 200 132"><path class="frame" d="M18 104 L80 34 Q86 27 91 34 L95 39 Q100 45 105 39 L109 34 Q114 27 120 34 L182 104"/>`
+  + `${lgRays(100, 48, [126, 108, 90, 72, 54], act, 14, 70, 80)}</svg>`;
+const LG_FAN_GEO = { cx: 150, cy: 160, r: 104, w: 56, a0: 125, span: 290 };
+// lange namen (bijv. "Laag-midden") kleiner, zodat ze binnen de boog blijven
+const lgFanFont = (t) => { const n = String(t || '').length; return n <= 5 ? 40 : n <= 8 ? 32 : 25; };
+const lgFanPos = (n, i) => {
+  const g = LG_FAN_GEO, deg = g.a0 + (n > 1 ? (i * g.span) / (n - 1) : g.span / 2), a = (deg * Math.PI) / 180;
+  return [+(g.cx + Math.cos(a) * g.r).toFixed(1), +(g.cy + Math.sin(a) * g.r).toFixed(1)];
+};
+function lgFanPic(n, idx, isAuto, labels, center) {
+  const g = LG_FAN_GEO, rad = (d) => (d * Math.PI) / 180;
+  const sx = g.cx + Math.cos(rad(g.a0)) * g.r, sy = g.cy + Math.sin(rad(g.a0)) * g.r;
+  const ex = g.cx + Math.cos(rad(g.a0 + g.span)) * g.r, ey = g.cy + Math.sin(rad(g.a0 + g.span)) * g.r;
+  let dots = '';
+  for (let i = 0; i < n; i++) { const [x, y] = lgFanPos(n, i); dots += `<circle cx="${x}" cy="${y}" r="4"/>`; }
+  const [tx, ty] = idx >= 0 ? lgFanPos(n, idx) : [g.cx, g.cy];
+  const [lx0, ly0] = lgFanPos(n, 0), [lx1, ly1] = lgFanPos(n, n - 1);
+  return `<svg class="fanpic${isAuto ? ' auto' : ''}" viewBox="0 0 300 300">
+    <defs><linearGradient id="fg" gradientUnits="userSpaceOnUse" x1="40" y1="0" x2="260" y2="0"><stop offset="0" stop-color="#edbb5f"/><stop offset="1" stop-color="#df6d48"/></linearGradient></defs>
+    <path class="arc" d="M${sx.toFixed(1)} ${sy.toFixed(1)} A${g.r} ${g.r} 0 1 1 ${ex.toFixed(1)} ${ey.toFixed(1)}" stroke="url(#fg)" stroke-width="${g.w}" stroke-linecap="round" fill="none"/>
+    <g class="dots" fill="#fff">${dots}</g>
+    <circle class="thumb" cx="${tx}" cy="${ty}" r="25" ${idx >= 0 ? '' : 'style="display:none"'}/>
+    <text class="ctext" x="${g.cx}" y="${g.cy + 4}" style="font-size:${lgFanFont(center)}px">${lgEsc(center)}</text>
+    <text class="lab" x="${lx0}" y="${ly0 + 52}">${lgEsc(labels[0])}</text>
+    ${labels[1] ? `<text class="lab" x="${g.cx}" y="${g.cy - g.r - g.w / 2 - 12}">${lgEsc(labels[1])}</text>` : ''}
+    <text class="lab" x="${lx1}" y="${ly1 + 52}">${lgEsc(labels[2])}</text></svg>`;
 }
 
 function lgCurrentTemp(hass, config, s) {
@@ -350,6 +393,52 @@ dialog.bsheet::backdrop { background: rgba(0,0,0,.55); }
 .bs-backdrop { flex: 1 1 auto; min-height: 40px; cursor: pointer; }
 .bs { flex: 0 1 auto; position:relative; background:#1f2023; border-radius: 30px 30px 0 0; padding: 12px 20px 28px; max-height: 85%; overflow-y:auto; box-sizing: border-box; animation: up .22s ease; }
 .grab { width: 58px; height: 6px; border-radius: 3px; background:#6b6e7a; margin: 0 auto 18px; }
+/* luchtstroom-blad (ThinQ-stijl) */
+.sec-h { color:#a3a5ad; font-size: 15px; letter-spacing: .4px; text-transform: uppercase; margin: 18px 4px 10px; }
+.flowcard { background:#2e2f34; border-radius: 22px; padding: 14px 18px 4px; }
+.flowtop { display:flex; align-items:center; justify-content:space-between; gap: 10px; }
+.flowpic { flex: 1 1 auto; min-width: 0; max-width: 230px; height: auto; display:block; }
+.flowpic .frame { fill:none; stroke:#8e8f95; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.flowpic .ray { stroke:#7c7d84; stroke-width: 5; stroke-linecap: round; }
+.flowpic .dot { fill:#7c7d84; }
+.flowpic .ray.on { stroke:#6d70f0; } .flowpic .dot.on { fill:#6d70f0; }
+.flowbtns { display:flex; gap: 14px; flex: none; }
+.flowbtns.v { flex-direction: column; }
+.flowbtns .round:disabled { opacity: .35; cursor: default; }
+.flowrow { display:flex; align-items:center; justify-content:space-between; gap: 12px; border-top: 1px solid #45464d; margin-top: 14px; min-height: 62px; font-size: 18px; }
+.closebtn { display:block; width:100%; margin-top: 18px; background:#2e2f34; color:#a9abf8; border:none; border-radius: 16px; padding: 16px; font: inherit; font-size: 18px; cursor:pointer; }
+/* ventilator-blad (ThinQ-stijl) */
+.fanwrap { display:flex; flex-direction:column; align-items:center; }
+.fanpic { width: 100%; max-width: 320px; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; }
+.fanpic .lab { fill:#c4c5cc; font-size: 17px; text-anchor: middle; }
+.fanpic .ctext { fill: currentColor; font-size: 40px; text-anchor: middle; dominant-baseline: middle; }
+.fanpic .thumb { fill:#cf613d; stroke: rgba(255,255,255,.28); stroke-width: 3; }
+.fanpic.auto .arc, .fanpic.auto .dots { opacity: .3; }
+.fanpm { display:flex; justify-content:space-between; width: 100%; max-width: 330px; margin-top: -4px; }
+.fanpm .round:disabled { opacity: .35; cursor: default; }
+.autorow { display:flex; align-items:center; justify-content:center; gap: 16px; margin-top: 16px; font-size: 18px; }
+.fan { cursor: pointer; }
+/* telefoon: alles moet binnen ~360 px passen */
+.grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cyc { gap: 6px; } .val { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 420px) {
+  .content { padding: 0 12px 100px; }
+  .hero { margin: 0 -12px; }
+  .grid2 > .card { min-height: 140px; padding: 14px 8px; }
+  .bigico { --mdc-icon-size: 44px; }
+  .lbl2 { font-size: 16px; }
+  .val { font-size: 20px; }
+  .round.sm { width: 34px; height: 34px; }
+  .tval { font-size: 48px; }
+  .modebtn { font-size: 28px; }
+  .power { width: 62px; height: 62px; }
+  .flowcard { padding: 12px 14px 4px; }
+  .flowrow { font-size: 16px; }
+  .flowbtns { gap: 10px; }
+}
+:host([bg=glass]) .flowcard, :host([bg=glass]) .closebtn { background: rgba(255,255,255,0.07); }
+:host([bg=theme]) .flowcard, :host([bg=theme]) .closebtn { background: var(--secondary-background-color, rgba(127,127,127,.15)); }
+:host([bg=theme]) .flowrow, :host([bg=theme]) .autorow { color: var(--primary-text-color, #fff); }
 .bs-title { font-size: 26px; font-weight: 700; margin: 0 0 16px 4px; }
 .opts { background:#2e2f34; border-radius: 22px; padding: 0 18px; }
 .opt { display:flex; align-items:center; gap: 14px; min-height: 64px; cursor:pointer; font-size: 20px; }
@@ -558,6 +647,7 @@ class LgAircoPanel extends HTMLElement {
     q('.fprev').addEventListener('click', () => this._cycleFan(-1));
     q('.fnext').addEventListener('click', () => this._cycleFan(1));
     $.air.addEventListener('click', () => this._openSheet('air'));
+    $.fan.addEventListener('click', (e) => { if (!e.target.closest('button')) this._openSheet('fan'); });
     $.sleepchk.addEventListener('change', () => {
       if ($.sleepchk.checked) { $.sleepchk.checked = false; this._openSheet('sleep'); }
       else this._setSleep(0);
@@ -626,6 +716,10 @@ class LgAircoPanel extends HTMLElement {
     $.air.classList.toggle('solo', !fans.length);
     $.grid2.hidden = !fans.length && !hasAir;
     const vs = this._val('swing', a.swing_mode), hs = this._val('hswing', a.swing_horizontal_mode);
+    if (LG_V_ORDER.includes(vs)) this._lastV = vs;
+    if (LG_H_ORDER.includes(hs)) this._lastH = hs;
+    const fmNow = this._val('fan', a.fan_mode);
+    if (fmNow && !LG_FAN_AUTO.includes(fmNow)) this._lastFan = fmNow;
     let airTxt = '';
     if (vs === 'Swing' && hs === 'Swing') airTxt = lgT('swing');
     else airTxt = [vs && `↕ ${LG_VSWING[vs] || vs}`, hs && `↔ ${LG_HSWING[hs] || hs}`].filter(Boolean).join('  ');
@@ -750,6 +844,129 @@ class LgAircoPanel extends HTMLElement {
     this._closeSheet();
     this._update();
   }
+  _setFan(m) {
+    if (!m) return;
+    this._setPending('fan', m);
+    this._call('climate', 'set_fan_mode', { entity_id: this._config.entity, fan_mode: m }, 'fan');
+    this._sheetSig = null;
+    this._update();
+  }
+
+  /* Luchtstroom-blad zoals in de ThinQ-app: Omhoog/Omlaag (zijaanzicht, 6 stralen) en
+     Links/Rechts (vooraanzicht, 5 stralen), elk met pijlknoppen en een zwenk-schakelaar. */
+  _renderAirSheet(a) {
+    const $ = this.$;
+    $.bstitle.textContent = lgT('airflow');
+    const vs = this._val('swing', a.swing_mode), hs = this._val('hswing', a.swing_horizontal_mode);
+    const vList = LG_V_ORDER.filter((v) => (a.swing_modes || []).includes(v));
+    const hList = LG_H_ORDER.filter((v) => (a.swing_horizontal_modes || []).includes(v));
+    const vFix = LG_V_ORDER.includes(vs) ? vs : this._lastV;
+    const hFix = LG_H_ORDER.includes(hs) ? hs : this._lastH;
+    const vAct = LG_V_ORDER.map((v) => vs === 'Swing' || v === vFix);
+    const hAct = LG_H_ORDER.map((v, i) => hs === 'Swing' || v === hFix
+      || (hs === 'LeftHalf' && i <= 2) || (hs === 'RightHalf' && i >= 2));
+    const vCur = vList.indexOf(vFix), hCur = hList.indexOf(hFix);
+    let html = '';
+    if (vList.length || (a.swing_modes || []).includes('Swing')) {
+      html += `<div class="sec-h">${lgT('v_head')}</div><div class="flowcard">
+        <div class="flowtop">${lgVPic(vAct)}<div class="flowbtns v">
+          <button class="round" data-a="vup" ${vList.length && vCur === 0 && vs !== 'Swing' ? 'disabled' : ''}><ha-icon icon="mdi:chevron-up"></ha-icon></button>
+          <button class="round" data-a="vdown" ${vList.length && vCur === vList.length - 1 && vs !== 'Swing' ? 'disabled' : ''}><ha-icon icon="mdi:chevron-down"></ha-icon></button></div></div>
+        <div class="flowrow"><span>${lgT('v_swing')}</span><label class="tgl"><input type="checkbox" data-a="vswing" ${vs === 'Swing' ? 'checked' : ''}><span></span></label></div></div>`;
+    }
+    if (hList.length || (a.swing_horizontal_modes || []).includes('Swing')) {
+      html += `<div class="sec-h">${lgT('h_head')}</div><div class="flowcard">
+        <div class="flowtop">${lgHPic(hAct)}<div class="flowbtns">
+          <button class="round" data-a="hleft" ${hList.length && hCur === 0 && hs !== 'Swing' ? 'disabled' : ''}><ha-icon icon="mdi:chevron-left"></ha-icon></button>
+          <button class="round" data-a="hright" ${hList.length && hCur === hList.length - 1 && hs !== 'Swing' ? 'disabled' : ''}><ha-icon icon="mdi:chevron-right"></ha-icon></button></div></div>
+        <div class="flowrow"><span>${lgT('h_swing')}</span><label class="tgl"><input type="checkbox" data-a="hswing" ${hs === 'Swing' ? 'checked' : ''}><span></span></label></div></div>`;
+    }
+    html += `<button class="closebtn">${lgT('close')}</button>`;
+    $.bsbody.innerHTML = html;
+    const step = (list, cur, dir) => {
+      if (!list.length) return null;
+      const base = cur >= 0 ? cur : Math.floor((list.length - 1) / 2) + (dir < 0 ? 1 : 0);
+      return list[Math.min(list.length - 1, Math.max(0, base + dir))];
+    };
+    const on = (sel, ev, fn) => { const el = $.bsbody.querySelector(sel); if (el) el.addEventListener(ev, fn); };
+    on('[data-a="vup"]', 'click', () => this._setSwing('v', step(vList, vCur, -1)));
+    on('[data-a="vdown"]', 'click', () => this._setSwing('v', step(vList, vCur, 1)));
+    on('[data-a="hleft"]', 'click', () => this._setSwing('h', step(hList, hCur, -1)));
+    on('[data-a="hright"]', 'click', () => this._setSwing('h', step(hList, hCur, 1)));
+    on('[data-a="vswing"]', 'change', (e) => this._setSwing('v', e.target.checked ? 'Swing' : (this._lastV && vList.includes(this._lastV) ? this._lastV : 'Off')));
+    on('[data-a="hswing"]', 'change', (e) => this._setSwing('h', e.target.checked ? 'Swing' : (this._lastH && hList.includes(this._lastH) ? this._lastH : 'Off')));
+    on('.closebtn', 'click', () => this._closeSheet());
+  }
+
+  /* Ventilatorsnelheid-blad zoals in de ThinQ-app: hoefijzer met kleurverloop, sleepbaar bolletje,
+     − / + en een Auto-schakelaar. */
+  _renderFanSheet(a) {
+    const $ = this.$;
+    $.bstitle.textContent = lgT('fan');
+    const all = a.fan_modes || [];
+    const manual = all.filter((m) => !LG_FAN_AUTO.includes(m));
+    const autoMode = all.find((m) => LG_FAN_AUTO.includes(m));
+    const cur = this._val('fan', a.fan_mode);
+    const isAuto = LG_FAN_AUTO.includes(cur);
+    let idx = manual.indexOf(cur);
+    if (idx < 0) idx = manual.indexOf(this._lastFan);
+    const base = idx >= 0 ? idx : Math.floor((manual.length - 1) / 2);
+    this._fanCtx = { manual, base };
+    const n = manual.length;
+    let html = '';
+    if (n) {
+      const mid = Math.floor((n - 1) / 2);
+      html += `<div class="fanwrap">${lgFanPic(n, isAuto ? -1 : base, isAuto,
+        [LG_FAN[manual[0]] || manual[0], n > 2 ? LG_FAN[manual[mid]] || manual[mid] : '', LG_FAN[manual[n - 1]] || manual[n - 1]],
+        isAuto ? (LG_FAN[cur] || 'Auto') : (LG_FAN[manual[base]] || manual[base]))}
+        <div class="fanpm"><button class="round" data-a="fminus" ${!isAuto && base <= 0 ? 'disabled' : ''}>−</button>
+        <button class="round" data-a="fplus" ${!isAuto && base >= n - 1 ? 'disabled' : ''}>+</button></div></div>`;
+    }
+    if (autoMode) html += `<div class="autorow"><span>${LG_FAN[autoMode] || 'Auto'}</span><label class="tgl"><input type="checkbox" data-a="fauto" ${isAuto ? 'checked' : ''}><span></span></label></div>`;
+    html += `<button class="closebtn">${lgT('close')}</button>`;
+    $.bsbody.innerHTML = html;
+    const on = (sel, ev, fn) => { const el = $.bsbody.querySelector(sel); if (el) el.addEventListener(ev, fn); };
+    on('[data-a="fminus"]', 'click', () => this._setFan(manual[isAuto ? base : Math.max(0, base - 1)]));
+    on('[data-a="fplus"]', 'click', () => this._setFan(manual[isAuto ? base : Math.min(n - 1, base + 1)]));
+    on('[data-a="fauto"]', 'change', (e) => this._setFan(e.target.checked ? autoMode : manual[base]));
+    on('.closebtn', 'click', () => this._closeSheet());
+    const svg = $.bsbody.querySelector('.fanpic');
+    if (!svg || !n) return;
+    const pick = (ev) => {
+      const ctm = svg.getScreenCTM(); if (!ctm) return base;
+      const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(ctm.inverse());
+      const ang = (Math.atan2(p.y - LG_FAN_GEO.cy, p.x - LG_FAN_GEO.cx) * 180) / Math.PI;
+      let rel = (((ang - LG_FAN_GEO.a0) % 360) + 360) % 360;
+      if (rel > LG_FAN_GEO.span) rel = rel > LG_FAN_GEO.span + (360 - LG_FAN_GEO.span) / 2 ? 0 : LG_FAN_GEO.span;
+      return n > 1 ? Math.round((rel / LG_FAN_GEO.span) * (n - 1)) : 0;
+    };
+    const live = (i) => {
+      const [x, y] = lgFanPos(n, i);
+      const th = svg.querySelector('.thumb'); th.setAttribute('cx', x); th.setAttribute('cy', y); th.style.display = '';
+      const ct = svg.querySelector('.ctext'), txt = LG_FAN[manual[i]] || manual[i];
+      ct.textContent = txt; ct.style.fontSize = `${lgFanFont(txt)}px`;
+      svg.classList.remove('auto');
+    };
+    let liveIdx = null;
+    svg.addEventListener('pointerdown', (ev) => {
+      this._dragging = true; liveIdx = pick(ev); live(liveIdx);
+      try { svg.setPointerCapture(ev.pointerId); } catch (e) { /* oude browser */ }
+      ev.preventDefault();
+    });
+    svg.addEventListener('pointermove', (ev) => {
+      if (!this._dragging) return;
+      const i = pick(ev); if (i !== liveIdx) { liveIdx = i; live(i); }
+    });
+    const end = () => {
+      if (!this._dragging) return;
+      this._dragging = false;
+      if (liveIdx !== null) this._setFan(manual[liveIdx]);
+      liveIdx = null;
+    };
+    svg.addEventListener('pointerup', end);
+    svg.addEventListener('pointercancel', end);
+  }
+
   _toggleSwitch(relKey, pendKey, wantOn) {
     const id = this._rel && this._rel[relKey]; if (!id) return;
     this._setPending(pendKey, wantOn ? 'on' : 'off');
@@ -775,9 +992,10 @@ class LgAircoPanel extends HTMLElement {
     const a = s.attributes, $ = this.$, kind = this._sheet;
     // alleen opnieuw opbouwen als er voor dit blad echt iets veranderd is; anders valt een klik
     // weg wanneer HA (meerdere keren per seconde) een nieuwe toestand stuurt
+    if (this._dragging) return;
     const sig = [kind, this._mode(s), (a.hvac_modes || []).join(), this._val('swing', a.swing_mode),
       this._val('hswing', a.swing_horizontal_mode), (a.swing_modes || []).join(), (a.swing_horizontal_modes || []).join(),
-      kind === 'sleep' ? this._sleepMins() : ''].join('|');
+      this._val('fan', a.fan_mode), (a.fan_modes || []).join(), kind === 'sleep' ? this._sleepMins() : ''].join('|');
     if (sig === this._sheetSig) return;
     this._sheetSig = sig;
     if (kind === 'mode') {
@@ -791,14 +1009,9 @@ class LgAircoPanel extends HTMLElement {
           <span>${LG_MODES[m].label}</span></div>`).join('')}</div>`;
       $.bsbody.querySelectorAll('.opt').forEach((o) => o.addEventListener('click', () => this._setMode(o.dataset.v)));
     } else if (kind === 'air') {
-      $.bstitle.textContent = lgT('airflow');
-      const vs = this._val('swing', a.swing_mode), hs = this._val('hswing', a.swing_horizontal_mode);
-      const chips = (list, map, cur, k) => `<div class="chips">${list.map((v) => `<button class="chip ${v === cur ? 'sel' : ''}" data-k="${k}" data-v="${lgEsc(v)}">${lgFlowSvg(k, v)}<span>${lgEsc(map[v] || v)}</span></button>`).join('')}</div>`;
-      let html = '';
-      if (a.swing_modes && a.swing_modes.length) html += `<div class="sub-h">${lgT('updown')}</div>${chips(a.swing_modes, LG_VSWING, vs, 'v')}`;
-      if (a.swing_horizontal_modes && a.swing_horizontal_modes.length) html += `<div class="sub-h">${lgT('leftright')}</div>${chips(a.swing_horizontal_modes, LG_HSWING, hs, 'h')}`;
-      $.bsbody.innerHTML = html;
-      $.bsbody.querySelectorAll('.chip').forEach((b) => b.addEventListener('click', () => this._setSwing(b.dataset.k, b.dataset.v)));
+      this._renderAirSheet(a);
+    } else if (kind === 'fan') {
+      this._renderFanSheet(a);
     } else if (kind === 'sleep') {
       $.bstitle.textContent = lgT('sleep');
       const cur = this._sleepMins();
@@ -833,6 +1046,15 @@ ha-card.tile.unavail { opacity:.5; }
 .sub { font-size: 17px; color:#d9dade; margin-top: 2px; }
 .mode { font-size: 14px; color:#b4b5bc; margin-top: 3px; display:flex; align-items:center; gap:4px; min-height: 18px; }
 .mode ha-icon { --mdc-icon-size: 16px; }
+/* smalle tegels (telefoon, halve breedte) */
+ha-card.tile { container-type: inline-size; }
+.top { gap: 8px; } .ic { min-width: 0; } .name { overflow-wrap: anywhere; }
+@container (max-width: 210px) {
+  .u-tile.wall { width: 64px; height: 32px; margin-top: 6px; }
+  .u-tile.cas { width: 40px; height: 40px; }
+  .pwr { width: 44px; height: 44px; } .pwr ha-icon { --mdc-icon-size: 24px; }
+  .name { font-size: 17px; margin-top: 10px; } .sub { font-size: 15px; } .mode { font-size: 12.5px; }
+}
 /* achtergrond: glass (zelfde glasstijl als de dashboardkaarten) */
 :host([bg=glass]) ha-card.tile { background: rgba(18, 22, 30, 0.72); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
   border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; }

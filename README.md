@@ -2,9 +2,9 @@
 
 [Nederlands](#nederlands) · [English](#english)
 
-| Tegel / Tile | Bediening / Control | Modus / Mode | Luchtstroom / Airflow | Nuttige functies / Features |
+| Tegel / Tile | Bediening / Control | Luchtstroom / Airflow | Ventilator / Fan | Nuttige functies / Features |
 |---|---|---|---|---|
-| ![Tiles](images/tiles.png) | ![Control](images/control.png) | ![Mode](images/mode.png) | ![Airflow](images/airflow.png) | ![Features](images/features.png) |
+| ![Tiles](images/tiles.png) | ![Control](images/control.png) | ![Airflow](images/airflow.png) | ![Fan](images/fan.png) | ![Features](images/features.png) |
 
 ---
 
@@ -22,7 +22,8 @@ Andere climate-entiteiten werken ook; de LG-specifieke extra's (Extra snel, slaa
 - Bedieningsscherm zoals de toestelpagina in de ThinQ-app:
   - blad met de bedieningsmodus (Koelen, Ontvochtigen, Ventilator, Warmte, Auto)
   - doeltemperatuur met − / + en schuifbalk (wordt na een korte pauze verstuurd, zodat een paar tikken één opdracht worden)
-  - ventilatorsnelheid met ‹ ›, blad voor de luchtstroom (lamelstanden op en neer, links en rechts, zwenken)
+  - ventilatorsnelheid met ‹ › of een blad met hoefijzer, − / + en Auto (zoals in de app)
+  - luchtstroom zoals in de app: Omhoog/Omlaag en Links/Rechts met afbeelding, pijlknoppen en zwenk-schakelaar
   - slaaptimer en Extra snel (Jet mode)
   - tabblad *Nuttige functies*: filter, stroomverbruik, energie, displayverlichting, wifi
 - Bijbehorende LG-entiteiten worden automatisch gevonden op hetzelfde apparaat
@@ -100,7 +101,8 @@ Other climate entities work too; LG-specific extras (jet mode, sleep timer, filt
 - Control screen like the ThinQ device page:
   - operation mode sheet (Cool, Dry, Fan, Heat, Auto)
   - target temperature with − / + and slider (sent after a short pause, so several taps become one command)
-  - fan speed with ‹ ›, airflow sheet (up/down and left/right louvre positions, swing)
+  - fan speed with ‹ › or a sheet with horseshoe dial, − / + and Auto (like the app)
+  - airflow like the app: Up/Down and Left/Right with picture, arrow buttons and swing switch
   - sleep timer and jet mode
   - *Useful features* tab: filter life, power, energy, display light, Wi-Fi
 - Related LG entities are found automatically on the same device
