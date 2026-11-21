@@ -16,7 +16,7 @@
  *                                       entity overrides; found automatically on the same device.
  *                                       Set to false to hide a feature.
  */
-const LG_VERSION = '1.3.0';
+const LG_VERSION = '1.4.0';
 const LG_I18N = {
   nl: {
     'm.cool': 'Koelen', 'm.dry': 'Ontvochtigen', 'm.fan_only': 'Ventilator', 'm.heat': 'Warmte', 'm.heat_cool': 'Auto', 'm.auto': 'Auto', 'm.__on': 'Inschakelen…',
@@ -847,8 +847,58 @@ ha-card.tile.unavail { opacity:.5; }
 
 class LgAircoCard extends HTMLElement {
   static getStubConfig(hass) {
-    const e = Object.keys(hass.states).find((id) => id.startsWith('climate.'));
-    return { entity: e || 'climate.airco' };
+    const reg = hass.entities || {};
+    const ids = Object.keys(hass.states).filter((id) => id.startsWith('climate.'));
+    const lg = ids.find((id) => reg[id] && reg[id].platform === 'smartthinq_sensors');
+    return { entity: lg || ids[0] || 'climate.airco', background: 'lg' };
+  }
+
+  /* Visual editor (ha-form schema). Labels follow the language of the logged-in user. */
+  static getConfigForm() {
+    const ha = document.querySelector('home-assistant');
+    lgSetLang(ha && ha.hass, null);
+    const L = lgLang === 'nl' ? {
+      entity: 'Airco (climate-entiteit)', name: 'Naam', layout: 'Weergave', unit: 'Afbeelding', background: 'Achtergrond', language: 'Taal',
+      temperature_sensor: 'Andere temperatuursensor (optioneel)', jet_mode: 'Extra snel (Jet mode)', display_light: 'Displayverlichting', sleep_time: 'Slaaptimer-sensor',
+      filter: 'Filtersensor', power: 'Stroomverbruik-sensor', energy: 'Energie-sensor', ssid: 'Wifi-sensor',
+      tile: 'Tegel (opent bedieningsscherm)', full: 'Volledig bedieningsscherm', wall: 'Wandunit', cassette: 'Plafondcassette',
+      lg: 'LG ThinQ (donker)', glass: 'Glas', theme: 'Volgt het thema', auto: 'Automatisch (taal gebruiker)', extra: 'LG-onderdelen (standaard automatisch gevonden)',
+      h_temp: 'Bijvoorbeeld een gemiddelde kamertemperatuur als de sensor van de airco afwijkt.',
+      h_extra: 'Laat leeg om ze automatisch op hetzelfde apparaat te zoeken.',
+    } : {
+      entity: 'Air conditioner (climate entity)', name: 'Name', layout: 'Layout', unit: 'Picture', background: 'Background', language: 'Language',
+      temperature_sensor: 'Other temperature sensor (optional)', jet_mode: 'Jet mode', display_light: 'Display light', sleep_time: 'Sleep timer sensor',
+      filter: 'Filter sensor', power: 'Power sensor', energy: 'Energy sensor', ssid: 'Wi-Fi sensor',
+      tile: 'Tile (opens control screen)', full: 'Full control screen', wall: 'Wall unit', cassette: 'Ceiling cassette',
+      lg: 'LG ThinQ (dark)', glass: 'Glass', theme: 'Follow theme', auto: 'Automatic (user language)', extra: 'LG features (found automatically)',
+      h_temp: "For example an average room temperature when the unit's own sensor is off.",
+      h_extra: 'Leave empty to find them automatically on the same device.',
+    };
+    const sel = (opts) => ({ select: { mode: 'dropdown', options: opts.map((v) => ({ value: v, label: L[v] || v })) } });
+    return {
+      schema: [
+        { name: 'entity', required: true, selector: { entity: { domain: 'climate' } } },
+        { name: 'name', selector: { text: {} } },
+        { type: 'grid', name: '', schema: [
+          { name: 'layout', selector: sel(['tile', 'full']) },
+          { name: 'unit', selector: sel(['wall', 'cassette']) },
+          { name: 'background', selector: sel(['lg', 'glass', 'theme']) },
+          { name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: '', label: L.auto }, { value: 'nl', label: 'Nederlands' }, { value: 'en', label: 'English' }] } } },
+        ] },
+        { name: 'temperature_sensor', selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
+        { type: 'expandable', name: '', title: L.extra, schema: [
+          { name: 'jet_mode', selector: { entity: { domain: 'switch' } } },
+          { name: 'display_light', selector: { entity: { domain: 'switch' } } },
+          { name: 'sleep_time', selector: { entity: { domain: 'sensor' } } },
+          { name: 'filter', selector: { entity: { domain: 'sensor' } } },
+          { name: 'power', selector: { entity: { domain: 'sensor' } } },
+          { name: 'energy', selector: { entity: { domain: 'sensor' } } },
+          { name: 'ssid', selector: { entity: { domain: 'sensor' } } },
+        ] },
+      ],
+      computeLabel: (s) => L[s.name] || s.name,
+      computeHelper: (s) => (s.name === 'temperature_sensor' ? L.h_temp : s.name === 'jet_mode' ? L.h_extra : undefined),
+    };
   }
 
   setConfig(config) {

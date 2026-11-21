@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0 — 2026-11-21
+
+- Visual editor: entity, name, layout, picture, background, language, temperature sensor and LG feature overrides
+- New cards pick an LG (smartthinq_sensors) air conditioner automatically
+
 ## 1.3.0 — 2026-11-21
 
 - Airflow sheet with pictograms per louvre position (up/down side view, left/right top view, swing fans)

@@ -47,6 +47,8 @@ Kopieer `dist/thinq-airco-card.js` naar `/config/www/thinq-airco-card/` en voeg 
 
 ### Instellen
 
+Alles is in te stellen met de **visuele editor** van Home Assistant. In YAML ziet het er zo uit:
+
 ```yaml
 type: custom:thinq-airco-card
 entity: climate.airco_woonkamer
@@ -122,6 +124,8 @@ Copy `dist/thinq-airco-card.js` to `/config/www/thinq-airco-card/` and add it as
 (`/local/thinq-airco-card/thinq-airco-card.js`, type *JavaScript module*).
 
 ### Configuration
+
+Everything can be set in the Home Assistant **visual editor**. In YAML it looks like this:
 
 ```yaml
 type: custom:thinq-airco-card

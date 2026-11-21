@@ -24,9 +24,13 @@ $entry = "## $Versie — $(Get-Date -Format 'yyyy-MM-dd')`n`n$regels`n`n"
 $cl = $cl -replace '^# Changelog\s*\n', "# Changelog`n`n$entry"
 [IO.File]::WriteAllText((Resolve-Path 'CHANGELOG.md'), $cl, $utf8)
 
-git add -A
-git commit -m "Release v$Versie" -m $Wijziging
-git tag "v$Versie"
-git push
-git push origin "v$Versie"
+# git schrijft voortgang naar stderr; dat is geen fout. Controleer de exitcode zelf.
+$ErrorActionPreference = 'Continue'
+$gitExe = (Get-Command git -CommandType Application | Select-Object -First 1).Source
+function Invoke-Git { & $gitExe @args 2>&1 | ForEach-Object { "$_" }; if ($LASTEXITCODE -ne 0) { throw "git $($args -join ' ') mislukt ($LASTEXITCODE)" } }
+Invoke-Git add -A
+Invoke-Git commit -m "Release v$Versie" -m $Wijziging
+Invoke-Git tag "v$Versie"
+Invoke-Git push
+Invoke-Git push origin "v$Versie"
 "v$Versie gepusht. Release verschijnt over ~1 minuut op https://github.com/schmeitz/thinq-airco-card/releases"
