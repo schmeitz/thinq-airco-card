@@ -16,7 +16,7 @@
  *                                       entity overrides; found automatically on the same device.
  *                                       Set to false to hide a feature.
  */
-const LG_VERSION = '1.5.1';
+const LG_VERSION = '1.5.2';
 const LG_I18N = {
   nl: {
     'm.cool': 'Koelen', 'm.dry': 'Ontvochtigen', 'm.fan_only': 'Ventilator', 'm.heat': 'Warmte', 'm.heat_cool': 'Auto', 'm.auto': 'Auto', 'm.__on': 'Inschakelen…',

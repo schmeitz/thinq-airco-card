@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.2 — 2026-11-21
+
+- Releases are always marked as latest
+
 ## 1.5.1 — 2026-11-21
 
 - Fan speed dial: grey track, coloured only up to the selected speed (like the ThinQ app)
