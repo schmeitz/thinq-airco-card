@@ -2,21 +2,29 @@
  * ThinQ Airco Card — LG air conditioners in Home Assistant, styled like the LG ThinQ app
  * https://github.com/schmeitz/thinq-airco-card · MIT licence · (c) 2026 Michiel Schmeitz
  * Works with the smartthinq_sensors integration (climate entities of LG air conditioners).
+ * Any other climate entity works too (for example an electric heater on a generic thermostat):
+ * controls the entity does not support are hidden.
  *
  * type: custom:thinq-airco-card
  * entity: climate.living_room_ac        (required)
  * name: Living room                     (optional, defaults to friendly_name)
  * layout: tile | full                   (tile = ThinQ overview tile, tap opens the control screen;
  *                                        full = control screen inside the card)
- * unit: wall | cassette                 (picture: wall unit or ceiling cassette)
- * background: lg | glass | theme        (lg = dark ThinQ colours; glass = frosted glass; theme = follow theme)
- * language: nl | en                     (optional, defaults to the Home Assistant user language)
+ * unit: wall | console | cassette | heater
+ *                                       (picture: wall unit, console / low wall unit, ceiling cassette,
+ *                                        or a plain electric heater)
+ * background: lg | light | glass | theme
+ *                                       (lg = dark ThinQ colours; light = light ThinQ colours;
+ *                                        glass = frosted glass; theme = follow theme)
+ * language: nl | en | de | fr | es      (optional, defaults to the Home Assistant user language)
  * temperature_sensor: sensor.xyz        (optional: show another room temperature)
+ * humidity_sensor: sensor.xyz           (optional: show another room humidity)
+ * show_power: true                      (optional: show the current power use on the tile)
  * jet_mode / display_light / sleep_time / filter / power / energy / ssid:
  *                                       entity overrides; found automatically on the same device.
  *                                       Set to false to hide a feature.
  */
-const LG_VERSION = '1.5.2';
+const LG_VERSION = '1.6.0';
 const LG_I18N = {
   nl: {
     'm.cool': 'Koelen', 'm.dry': 'Ontvochtigen', 'm.fan_only': 'Ventilator', 'm.heat': 'Warmte', 'm.heat_cool': 'Auto', 'm.auto': 'Auto', 'm.__on': 'Inschakelen…',
@@ -30,7 +38,7 @@ const LG_I18N = {
     jet_heat: 'Krachtige stroom warme lucht om de ruimte snel te verwarmen.', jet_cool: 'Krachtige stroom koude lucht om de ruimte snel te koelen.',
     filter: 'Filter', filter_clean: 'Filter schoonmaken aanbevolen', filter_life: 'Resterende levensduur', power_now: 'Stroomverbruik nu', energy_total: 'Energie totaal',
     display_light: 'Displayverlichting', wifi: 'Wifi', all_details: 'Alle details', tab_device: 'Toestel', tab_extra: 'Nuttige<br>functies',
-    v_head: 'Omhoog/Omlaag', v_swing: 'Omhoog/Omlaag zwenken', h_head: 'Links/Rechts', h_swing: 'Links/Rechts zwenken', close: 'Sluiten',
+    v_head: 'Omhoog/Omlaag', v_swing: 'Omhoog/Omlaag zwenken', h_head: 'Links/Rechts', h_swing: 'Links/Rechts zwenken', close: 'Sluiten', preset: 'Voorkeuze',
     mode_title: 'Bedieningsmodus', updown: 'Op en neer', leftright: 'Links en rechts', swing: 'Zwenken',
     sleep_after: 'De airco gaat uit na', sleep_now: 'Nu: uit over {d}. Wijzigen naar', sleep_off: 'Slaaptimer uit', sleep_left: 'Gaat uit over {d}',
     sleep_set: 'Slaaptimer: de airco gaat uit over {d}', sleep_failed: 'Slaaptimer mislukt: {e}', failed: 'Mislukt: {e}',
@@ -49,20 +57,91 @@ const LG_I18N = {
     jet_heat: 'Powerful stream of warm air to heat the room quickly.', jet_cool: 'Powerful stream of cold air to cool the room quickly.',
     filter: 'Filter', filter_clean: 'Cleaning recommended', filter_life: 'Remaining life', power_now: 'Power now', energy_total: 'Total energy',
     display_light: 'Display light', wifi: 'Wi-Fi', all_details: 'All details', tab_device: 'Device', tab_extra: 'Useful<br>features',
-    v_head: 'Up/Down', v_swing: 'Up/Down swing', h_head: 'Left/Right', h_swing: 'Left/Right swing', close: 'Close',
+    v_head: 'Up/Down', v_swing: 'Up/Down swing', h_head: 'Left/Right', h_swing: 'Left/Right swing', close: 'Close', preset: 'Preset',
     mode_title: 'Operation mode', updown: 'Up and down', leftright: 'Left and right', swing: 'Swing',
     sleep_after: 'Turn the air conditioner off after', sleep_now: 'Now: off in {d}. Change to', sleep_off: 'Sleep timer off', sleep_left: 'Turns off in {d}',
     sleep_set: 'Sleep timer: turns off in {d}', sleep_failed: 'Sleep timer failed: {e}', failed: 'Failed: {e}',
     min: '{m} min', hour: '{h} h', hourmin: '{h} h {m} min',
     err_entity: 'Please set a climate entity, for example entity: climate.living_room_ac',
   },
+  de: {
+    'm.cool': 'Kühlen', 'm.dry': 'Entfeuchten', 'm.fan_only': 'Ventilator', 'm.heat': 'Heizen', 'm.heat_cool': 'Auto', 'm.auto': 'Auto', 'm.__on': 'Wird eingeschaltet…',
+    'f.low': 'Niedrig', 'f.LOW_MID': 'Niedrig-mittel', 'f.medium': 'Mittel', 'f.MID_HIGH': 'Mittel-hoch', 'f.high': 'Hoch', 'f.diffuse': 'Auto', 'f.auto': 'Auto',
+    'f.SLOW': 'Sehr niedrig', 'f.SLOW_LOW': 'Sehr niedrig-niedrig', 'f.POWER': 'Turbo',
+    'v.Off': 'Fest', 'v.Top': 'Oben', 'v.MiddleTop1': 'Stufe 2', 'v.MiddleTop2': 'Stufe 3', 'v.MiddleBottom2': 'Stufe 4', 'v.MiddleBottom1': 'Stufe 5', 'v.Bottom': 'Unten', 'v.Swing': 'Schwenken',
+    'h.Off': 'Fest', 'h.Left': 'Links', 'h.MiddleLeft': 'Mitte-links', 'h.Center': 'Mitte', 'h.MiddleRight': 'Mitte-rechts', 'h.Right': 'Rechts',
+    'h.LeftHalf': 'Linke Hälfte', 'h.RightHalf': 'Rechte Hälfte', 'h.Swing': 'Schwenken',
+    off: 'Aus', unavailable: 'Nicht verfügbar', back: 'Zurück', details: 'Details', power: 'Ein/Aus', lower: 'Niedriger', higher: 'Höher', prev: 'Zurück', next: 'Weiter',
+    offnote: 'Ausgeschaltet — Ein/Aus-Taste drücken', target: 'Zieltemperatur', fan: 'Lüfterstufe', airflow: 'Luftstrom', sleep: 'Schlaf-Timer', jet: 'Jet-Modus',
+    jet_heat: 'Kräftiger Warmluftstrom, um den Raum schnell zu heizen.', jet_cool: 'Kräftiger Kaltluftstrom, um den Raum schnell zu kühlen.',
+    filter: 'Filter', filter_clean: 'Reinigung empfohlen', filter_life: 'Verbleibende Lebensdauer', power_now: 'Leistung aktuell', energy_total: 'Energie gesamt',
+    display_light: 'Displaybeleuchtung', wifi: 'WLAN', all_details: 'Alle Details', tab_device: 'Gerät', tab_extra: 'Nützliche<br>Funktionen',
+    v_head: 'Auf/Ab', v_swing: 'Auf/Ab schwenken', h_head: 'Links/Rechts', h_swing: 'Links/Rechts schwenken', close: 'Schließen', preset: 'Voreinstellung',
+    mode_title: 'Betriebsmodus', updown: 'Auf und ab', leftright: 'Links und rechts', swing: 'Schwenken',
+    sleep_after: 'Das Gerät schaltet sich aus nach', sleep_now: 'Jetzt: aus in {d}. Ändern auf', sleep_off: 'Schlaf-Timer aus', sleep_left: 'Schaltet sich aus in {d}',
+    sleep_set: 'Schlaf-Timer: schaltet sich aus in {d}', sleep_failed: 'Schlaf-Timer fehlgeschlagen: {e}', failed: 'Fehlgeschlagen: {e}',
+    min: '{m} Min.', hour: '{h} Std.', hourmin: '{h} Std. {m} Min.',
+    err_entity: 'Bitte eine Climate-Entität angeben, zum Beispiel entity: climate.wohnzimmer_klima',
+  },
+  fr: {
+    'm.cool': 'Froid', 'm.dry': 'Déshumidification', 'm.fan_only': 'Ventilation', 'm.heat': 'Chaud', 'm.heat_cool': 'Auto', 'm.auto': 'Auto', 'm.__on': 'Mise en marche…',
+    'f.low': 'Faible', 'f.LOW_MID': 'Faible-moyen', 'f.medium': 'Moyen', 'f.MID_HIGH': 'Moyen-fort', 'f.high': 'Fort', 'f.diffuse': 'Auto', 'f.auto': 'Auto',
+    'f.SLOW': 'Très faible', 'f.SLOW_LOW': 'Très faible-faible', 'f.POWER': 'Turbo',
+    'v.Off': 'Fixe', 'v.Top': 'Haut', 'v.MiddleTop1': 'Position 2', 'v.MiddleTop2': 'Position 3', 'v.MiddleBottom2': 'Position 4', 'v.MiddleBottom1': 'Position 5', 'v.Bottom': 'Bas', 'v.Swing': 'Oscillation',
+    'h.Off': 'Fixe', 'h.Left': 'Gauche', 'h.MiddleLeft': 'Centre-gauche', 'h.Center': 'Centre', 'h.MiddleRight': 'Centre-droite', 'h.Right': 'Droite',
+    'h.LeftHalf': 'Moitié gauche', 'h.RightHalf': 'Moitié droite', 'h.Swing': 'Oscillation',
+    off: 'Arrêt', unavailable: 'Indisponible', back: 'Retour', details: 'Détails', power: 'Marche/arrêt', lower: 'Moins', higher: 'Plus', prev: 'Précédent', next: 'Suivant',
+    offnote: 'Éteint — appuyez sur le bouton marche/arrêt', target: 'Température cible', fan: 'Vitesse du ventilateur', airflow: "Flux d'air", sleep: 'Minuterie de veille', jet: 'Mode Jet',
+    jet_heat: "Puissant flux d'air chaud pour chauffer rapidement la pièce.", jet_cool: "Puissant flux d'air froid pour refroidir rapidement la pièce.",
+    filter: 'Filtre', filter_clean: 'Nettoyage recommandé', filter_life: 'Durée de vie restante', power_now: 'Puissance actuelle', energy_total: 'Énergie totale',
+    display_light: "Éclairage de l'écran", wifi: 'Wi-Fi', all_details: 'Tous les détails', tab_device: 'Appareil', tab_extra: 'Fonctions<br>utiles',
+    v_head: 'Haut/Bas', v_swing: 'Oscillation haut/bas', h_head: 'Gauche/Droite', h_swing: 'Oscillation gauche/droite', close: 'Fermer', preset: 'Préréglage',
+    mode_title: 'Mode de fonctionnement', updown: 'Haut et bas', leftright: 'Gauche et droite', swing: 'Oscillation',
+    sleep_after: "L'appareil s'éteint après", sleep_now: 'Actuellement : arrêt dans {d}. Modifier en', sleep_off: 'Minuterie désactivée', sleep_left: "S'éteint dans {d}",
+    sleep_set: "Minuterie : s'éteint dans {d}", sleep_failed: 'Échec de la minuterie : {e}', failed: 'Échec : {e}',
+    min: '{m} min', hour: '{h} h', hourmin: '{h} h {m} min',
+    err_entity: 'Indiquez une entité climate, par exemple entity: climate.clim_salon',
+  },
+  es: {
+    'm.cool': 'Frío', 'm.dry': 'Deshumidificar', 'm.fan_only': 'Ventilador', 'm.heat': 'Calor', 'm.heat_cool': 'Auto', 'm.auto': 'Auto', 'm.__on': 'Encendiendo…',
+    'f.low': 'Baja', 'f.LOW_MID': 'Baja-media', 'f.medium': 'Media', 'f.MID_HIGH': 'Media-alta', 'f.high': 'Alta', 'f.diffuse': 'Auto', 'f.auto': 'Auto',
+    'f.SLOW': 'Muy baja', 'f.SLOW_LOW': 'Muy baja-baja', 'f.POWER': 'Turbo',
+    'v.Off': 'Fijo', 'v.Top': 'Arriba', 'v.MiddleTop1': 'Posición 2', 'v.MiddleTop2': 'Posición 3', 'v.MiddleBottom2': 'Posición 4', 'v.MiddleBottom1': 'Posición 5', 'v.Bottom': 'Abajo', 'v.Swing': 'Oscilar',
+    'h.Off': 'Fijo', 'h.Left': 'Izquierda', 'h.MiddleLeft': 'Centro-izquierda', 'h.Center': 'Centro', 'h.MiddleRight': 'Centro-derecha', 'h.Right': 'Derecha',
+    'h.LeftHalf': 'Mitad izquierda', 'h.RightHalf': 'Mitad derecha', 'h.Swing': 'Oscilar',
+    off: 'Apagado', unavailable: 'No disponible', back: 'Atrás', details: 'Detalles', power: 'Encender/apagar', lower: 'Bajar', higher: 'Subir', prev: 'Anterior', next: 'Siguiente',
+    offnote: 'Apagado — pulsa el botón de encendido', target: 'Temperatura objetivo', fan: 'Velocidad del ventilador', airflow: 'Flujo de aire', sleep: 'Temporizador de sueño', jet: 'Modo Jet',
+    jet_heat: 'Potente flujo de aire caliente para calentar la habitación rápidamente.', jet_cool: 'Potente flujo de aire frío para enfriar la habitación rápidamente.',
+    filter: 'Filtro', filter_clean: 'Limpieza recomendada', filter_life: 'Vida útil restante', power_now: 'Consumo actual', energy_total: 'Energía total',
+    display_light: 'Luz de la pantalla', wifi: 'Wi-Fi', all_details: 'Todos los detalles', tab_device: 'Dispositivo', tab_extra: 'Funciones<br>útiles',
+    v_head: 'Arriba/Abajo', v_swing: 'Oscilación arriba/abajo', h_head: 'Izquierda/Derecha', h_swing: 'Oscilación izquierda/derecha', close: 'Cerrar', preset: 'Preajuste',
+    mode_title: 'Modo de funcionamiento', updown: 'Arriba y abajo', leftright: 'Izquierda y derecha', swing: 'Oscilar',
+    sleep_after: 'El aparato se apaga después de', sleep_now: 'Ahora: se apaga en {d}. Cambiar a', sleep_off: 'Temporizador apagado', sleep_left: 'Se apaga en {d}',
+    sleep_set: 'Temporizador: se apaga en {d}', sleep_failed: 'Error del temporizador: {e}', failed: 'Error: {e}',
+    min: '{m} min', hour: '{h} h', hourmin: '{h} h {m} min',
+    err_entity: 'Indica una entidad climate, por ejemplo entity: climate.aire_salon',
+  },
 };
 let lgLang = 'en';
 const lgSetLang = (hass, config) => {
   const l = (config && config.language) || (hass && ((hass.locale && hass.locale.language) || hass.language)) || 'en';
-  lgLang = String(l).toLowerCase().startsWith('nl') ? 'nl' : 'en';
+  const p = String(l).toLowerCase().slice(0, 2);
+  lgLang = LG_I18N[p] ? p : 'en';
 };
-const lgLoc = () => (lgLang === 'nl' ? 'nl-NL' : undefined);
+const lgLoc = () => ({ nl: 'nl-NL', de: 'de-DE', fr: 'fr-FR', es: 'es-ES' }[lgLang]);
+// room humidity: own sensor from the config, otherwise what the climate entity reports
+const lgHumidity = (hass, config, s) => {
+  const o = config.humidity_sensor && hass.states[config.humidity_sensor];
+  const n = o ? lgNum(o.state) : s ? lgNum(s.attributes.current_humidity) : null;
+  return n === null ? null : `${Math.round(n)}%`;
+};
+// power of a sensor as text: 539 W, 1,2 kW
+const lgPowerTxt = (st) => {
+  let n = st ? lgNum(st.state) : null;
+  if (n === null) return null;
+  if (String(st.attributes && st.attributes.unit_of_measurement).toLowerCase() === 'kw') n *= 1000;
+  return n >= 1000 ? `${(n / 1000).toLocaleString(lgLoc(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kW` : `${Math.round(n)} W`;
+};
 const lgT = (k, vars) => {
   let s = (LG_I18N[lgLang] && LG_I18N[lgLang][k]) ?? LG_I18N.en[k] ?? k;
   if (vars) for (const [a, b] of Object.entries(vars)) s = s.replace(`{${a}}`, b);
@@ -102,26 +181,31 @@ const lgDur = (m) => {
   if (!h) return lgT('min', { m: r });
   return r ? lgT('hourmin', { h, m: r }) : lgT('hour', { h });
 };
-const lgBg = (c) => (['glass', 'theme'].includes(String(c && c.background).toLowerCase()) ? String(c.background).toLowerCase() : 'lg');
+const lgBg = (c) => (['glass', 'theme', 'light'].includes(String(c && c.background).toLowerCase()) ? String(c.background).toLowerCase() : 'lg');
 const lgEsc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 function lgRelated(hass, config) {
   const re = {
-    jet_mode: /^switch\..*_jet_mode$/,
-    display_light: /^switch\..*_display_light$/,
-    sleep_time: /^sensor\..*_sleep_time$/,
-    filter: /^sensor\..*_filter_remaining_life$/,
-    power: /^sensor\..*_energy_current$/,
-    energy: /^sensor\..*_energ(y|ie)$/,
-    ssid: /^sensor\..*_ssid$/,
+    jet_mode: [/^switch\..*_jet_mode$/],
+    display_light: [/^switch\..*_display_light$/],
+    sleep_time: [/^sensor\..*_sleep_time$/],
+    filter: [/^sensor\..*_filter_remaining_life$/],
+    power: [/^sensor\..*_energy_current$/, /^sensor\..*_(power|vermogen)$/],
+    energy: [/^sensor\..*_energ(y|ie)$/],
+    ssid: [/^sensor\..*_ssid$/],
   };
   const reg = hass.entities || {};
   const dev = reg[config.entity] && reg[config.entity].device_id;
   const ids = dev ? Object.values(reg).filter((e) => e.device_id === dev).map((e) => e.entity_id) : [];
+  // first pattern that matches wins; of several matches the shortest id (e.g. _power before _apparent_power)
+  const pick = (rs) => {
+    for (const r of rs) { const m = ids.filter((id) => r.test(id)).sort((x, y) => x.length - y.length); if (m.length) return m[0]; }
+    return null;
+  };
   const out = {};
   for (const [k, r] of Object.entries(re)) {
     if (config[k] === false) { out[k] = null; continue; }
-    out[k] = config[k] || ids.find((id) => r.test(id)) || null;
+    out[k] = config[k] || pick(r);
   }
   return out;
 }
@@ -226,6 +310,9 @@ function lgFanPic(n, idx, isAuto, labels, center) {
     <text class="lab" x="${lx1}" y="${ly1 + 52}">${lgEsc(labels[2])}</text></svg>`;
 }
 
+// steps smaller than half a degree (0.1 on many thermostats) are too fine for the buttons and slider
+const lgStep = (a) => Math.max(lgNum(a.target_temp_step) || 1, 0.5);
+
 function lgCurrentTemp(hass, config, s) {
   if (config.temperature_sensor && hass.states[config.temperature_sensor]) {
     return lgNum(hass.states[config.temperature_sensor].state);
@@ -234,6 +321,53 @@ function lgCurrentTemp(hass, config, s) {
 }
 
 function lgUnitSvg(kind, size) {
+  const up = `<linearGradient id="hfu" x1="0" y1="1" x2="0" y2="0"><stop offset="0" style="stop-color:var(--flow);stop-opacity:.8"/><stop offset="1" style="stop-color:var(--flow);stop-opacity:0"/></linearGradient>`;
+  if (kind === 'console') {
+    // console / low wall unit: blows upwards from the slot on top
+    if (size === 'tile') {
+      return `<svg viewBox="0 0 48 52" class="u-tile con">
+        <g class="air" style="stroke: var(--air, #3cc8c0)" stroke-width="2.2" stroke-linecap="round" fill="none">
+          <path d="M15 11 l-2.5 -8"/><path d="M24 11 v-8"/><path d="M33 11 l2.5 -8"/></g>
+        <rect x="8" y="15" width="32" height="35" rx="5" fill="#efece6" stroke="#d6d0c4"/>
+        <rect x="12" y="19" width="24" height="2.8" rx="1.4" fill="#34353b"/>
+        <rect x="13" y="40.5" width="22" height="1.8" rx=".9" fill="#bdb6a7"/><rect x="13" y="44" width="22" height="1.8" rx=".9" fill="#bdb6a7"/></svg>`;
+    }
+    return `<svg viewBox="0 0 300 190" class="u-hero">
+      <defs>
+        <linearGradient id="hb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".75" stop-color="#eef0f3"/><stop offset="1" stop-color="#d9dce2"/></linearGradient>
+        <linearGradient id="hs" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#d5d8de"/><stop offset="1" stop-color="#aeb2bb"/></linearGradient>${up}
+      </defs>
+      <path class="flow" d="M108 50 L192 46 L222 0 L80 0 Z" fill="url(#hfu)"/>
+      <path d="M198 49 L211 56 Q214 58 214 63 L214 146 Q214 151 209 152 L198 155 Z" fill="url(#hs)"/>
+      <path d="M108 46 L190 42 Q198 42 198 50 L198 148 Q198 156 190 156 L108 159 Q100 159 100 151 L100 54 Q100 46 108 46 Z" fill="url(#hb)"/>
+      <path d="M109 53 L190 49 L190 54.5 L109 58.5 Z" fill="#2c2d33"/>
+      <path d="M111 68 L188 65 L188 128 L111 130 Z" fill="none" stroke="#d8dbe1" stroke-width="1.6" stroke-linejoin="round"/>
+      <g stroke="#565962" stroke-width="2.4" stroke-linecap="round"><path d="M114 139 L185 137"/><path d="M114 146 L185 144"/></g></svg>`;
+  }
+  if (kind === 'heater') {
+    // plain electric heater: panel with grille on two feet, warmth rises
+    if (size === 'tile') {
+      const x = [11, 17, 23, 29, 35, 41];
+      return `<svg viewBox="0 0 62 52" class="u-tile heat">
+        <g class="air" style="stroke: var(--air, #ff8a3d)" stroke-width="2.2" stroke-linecap="round" fill="none">
+          <path d="M19 13 q-3 -3 0 -6 t0 -6"/><path d="M31 13 q-3 -3 0 -6 t0 -6"/><path d="M43 13 q-3 -3 0 -6 t0 -6"/></g>
+        <rect x="11" y="44" width="7" height="5" rx="1.5" fill="#a39c8d"/><rect x="44" y="44" width="7" height="5" rx="1.5" fill="#a39c8d"/>
+        <rect x="4" y="17" width="54" height="28" rx="5" fill="#efece6" stroke="#d6d0c4"/>
+        <g stroke="#bdb6a7" stroke-width="2.2" stroke-linecap="round">${x.map((v) => `<line x1="${v}" y1="23.5" x2="${v}" y2="38.5"/>`).join('')}</g>
+        <circle cx="50.5" cy="25" r="2.6" fill="#34353b"/><circle class="led" cx="50.5" cy="33" r="1.5"/></svg>`;
+    }
+    const x = [88, 101, 114, 127, 140, 153, 166, 179];
+    return `<svg viewBox="0 0 300 190" class="u-hero">
+      <defs>
+        <linearGradient id="hb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".75" stop-color="#eef0f3"/><stop offset="1" stop-color="#d9dce2"/></linearGradient>${up}
+      </defs>
+      <path class="flow" d="M76 58 L224 58 L258 0 L42 0 Z" fill="url(#hfu)"/>
+      <rect x="86" y="146" width="18" height="12" rx="3" fill="#8f939d"/><rect x="196" y="146" width="18" height="12" rx="3" fill="#8f939d"/>
+      <rect x="66" y="52" width="168" height="98" rx="12" fill="url(#hb)"/>
+      <g stroke="#c5c8d0" stroke-width="5" stroke-linecap="round">${x.map((v) => `<line x1="${v}" y1="70" x2="${v}" y2="132"/>`).join('')}</g>
+      <circle cx="210" cy="76" r="9" fill="#3a3b42"/><path d="M210 69 V76" stroke="#d8dbe1" stroke-width="2" stroke-linecap="round"/>
+      <circle class="led" cx="210" cy="100" r="3.2"/></svg>`;
+  }
   if (kind === 'cassette') {
     if (size === 'tile') {
       const l = [17, 21, 25, 29, 33];
@@ -310,10 +444,13 @@ header .title { flex:1; font-size: 26px; font-weight: 700; letter-spacing:.2px; 
 .hero .unit { width: 72%; max-width: 300px; position:absolute; top: 4px; }
 .u-hero { width:100%; display:block; }
 .flow { opacity:0; transition: opacity .6s; }
-:host([on]) .flow { opacity:1; animation: breathe 3s ease-in-out infinite; }
+:host([on]:not([idle])) .flow { opacity:1; animation: breathe 3s ease-in-out infinite; }
+.led { fill:#8b8d95; transition: fill .4s; }
+:host([on]) .led { fill: var(--flow); }
 @keyframes breathe { 0%,100% { opacity:.7 } 50% { opacity:1 } }
 .cur { position:relative; display:flex; align-items:center; gap:4px; font-size: 22px; font-weight: 500; }
 .cur ha-icon { --mdc-icon-size: 22px; color:#e8e8ec; }
+.hum { display:inline-flex; align-items:center; gap:4px; margin-left: 12px; }
 .moderow { display:flex; align-items:center; justify-content:space-between; margin: 18px 0 16px; }
 .modebtn { display:flex; align-items:center; gap:6px; background:none; border:none; color:#fff; font: inherit; font-size: 32px; font-weight: 600; padding:0; cursor:pointer; }
 .modebtn ha-icon { --mdc-icon-size: 30px; }
@@ -396,6 +533,47 @@ button.card { border:none; color:#fff; font: inherit; cursor:pointer; }
 :host([bg=theme]) .bs { background: var(--card); }
 :host([bg=theme]) .opts, :host([bg=theme]) .chip:not(.sel) { background: var(--secondary-background-color, rgba(127,127,127,.15)); color: var(--primary-text-color, #fff); }
 :host([bg=theme]) .tab:not(.active) { color: var(--secondary-text-color, #c3c4cb); }
+/* achtergrond: light (lichte ThinQ-kleuren) */
+:host([bg=light]) { color:#16171a; --card:#fff; --sub:#5d5f68; --acc:#6272f5; }
+:host([bg=light]) .screen { background:#eef0f4; }
+:host([bg=light]) dialog.main::backdrop, :host([bg=light]) dialog.bsheet::backdrop { background: rgba(0,0,0,.4); }
+:host([bg=light]) .hero { background: radial-gradient(ellipse at 50% 30%, #ffffff 0%, #eef0f4 70%); }
+:host([bg=light]) .u-hero { filter: drop-shadow(0 8px 10px rgba(0,0,0,.16)); }
+:host([bg=light]) .ico { color:#3b3d45; }
+:host([bg=light]) .ico:hover { background: rgba(0,0,0,.06); }
+:host([bg=light]) .cur ha-icon { color:#16171a; }
+:host([bg=light]) .modebtn, :host([bg=light]) button.card, :host([bg=light]) .lbl2, :host([bg=light]) .row .rt, :host([bg=light]) .jet .rt { color:#16171a; }
+:host([bg=light]) .lbl { color:#4d4f57; }
+:host([bg=light]) .target { background:#d9ece8; }
+:host([bg=light]) .grid2 > .card { background:#d8e6f1; }
+:host([bg=light]) .round { background:#fff; color:#5d5f68; }
+:host([bg=light]) .round:active { background:#f0f1f5; }
+:host([bg=light]) .bs .round { background:#e6e8ee; }
+:host([bg=light]) input[type=range] { background: linear-gradient(to right, var(--acc) 0%, var(--acc) var(--fill, 50%), #c5d3d3 var(--fill, 50%), #c5d3d3 100%); }
+:host([bg=light]) .row + .row { border-top-color:#e3e5ea; }
+:host([bg=light]) .sep { background:#d5d7dd; }
+:host([bg=light]) .tgl span { background:#b9bcc6; }
+:host([bg=light]) .tgl input:checked + span { background: var(--acc2); }
+:host([bg=light]) .power { background:#c5c7ce; color:#fff; }
+:host([bg=light][on]) .power { background:#fff; color: var(--acc2); box-shadow: 0 3px 12px rgba(0,0,0,.14); }
+:host([bg=light]) .tabs { background:#fff; box-shadow: 0 -8px 26px 10px #eef0f4, 0 2px 14px rgba(0,0,0,.14); }
+:host([bg=light]:not([dialog])) .tabs { box-shadow: 0 2px 10px rgba(0,0,0,.10); }
+:host([bg=light]) .tab:not(.active) { color:#5d5f68; }
+:host([bg=light]) .bs { background:#f4f5f8; }
+:host([bg=light]) .grab { background:#c2c5ce; }
+:host([bg=light]) .opts, :host([bg=light]) .chip:not(.sel), :host([bg=light]) .flowcard, :host([bg=light]) .closebtn { background:#fff; }
+:host([bg=light]) .closebtn { color: var(--acc2); }
+:host([bg=light]) .chip:not(.sel) { color:#3b3d45; }
+:host([bg=light]) .opt + .opt, :host([bg=light]) .flowrow { border-top-color:#e3e5ea; }
+:host([bg=light]) .sec-h { color:#6b6d76; }
+:host([bg=light]) .flowpic .frame { stroke:#a9acb5; }
+:host([bg=light]) .flowpic .ray { stroke:#c9ccd4; } :host([bg=light]) .flowpic .dot { fill:#c9ccd4; }
+:host([bg=light]) .flowpic .ray.on { stroke:#6d70f0; } :host([bg=light]) .flowpic .dot.on { fill:#6d70f0; }
+:host([bg=light]) .fanpic .arc { stroke:#dfe1e7; }
+:host([bg=light]) .fanpic .lab { fill:#5d5f68; }
+:host([bg=light]) .fanpic .dots circle { fill:#a4a7b1; }
+:host([bg=light]) .fanpic .dots circle.lit { fill:#fff; }
+:host([bg=light]) .fanpic .thumb { fill: rgba(255,255,255,.5); stroke: rgba(0,0,0,.10); }
 /* onderblad (eigen top-layer-dialog: valt nooit buiten beeld) */
 dialog.bsheet { padding:0; border:none; background:transparent; width:100%; max-width:470px; height:100%; max-height:100%; margin:0 auto; overflow:hidden; }
 dialog.bsheet[open] { display:flex; flex-direction:column; }
@@ -566,7 +744,8 @@ class LgAircoPanel extends HTMLElement {
         <div class="content">
           <div class="page" data-page="device">
             <div class="hero"><div class="unit">${lgUnitSvg(this._config.unit, 'hero')}</div>
-              <div class="cur"><ha-icon icon="mdi:thermometer"></ha-icon><span class="curv"></span></div></div>
+              <div class="cur"><ha-icon icon="mdi:thermometer"></ha-icon><span class="curv"></span>
+                <span class="hum" hidden><ha-icon icon="mdi:water-outline"></ha-icon><span class="humv"></span></span></div></div>
             <div class="controls">
               <div class="moderow">
                 <button class="modebtn"><span class="modelabel"></span><ha-icon icon="mdi:chevron-down"></ha-icon></button>
@@ -597,6 +776,14 @@ class LgAircoPanel extends HTMLElement {
                   <div class="lbl2">${lgT('airflow')}</div>
                   <div class="sval airval"></div>
                 </button>
+              </div>
+              <div class="card list presetcard">
+                <div class="row click presetrow">
+                  <ha-icon class="blue" icon="mdi:tune-variant"></ha-icon>
+                  <div class="rt">${lgT('preset')}</div>
+                  <div class="rv presetv"></div>
+                  <ha-icon icon="mdi:chevron-right" style="--mdc-icon-size:24px"></ha-icon>
+                </div>
               </div>
               <div class="card list sleepcard">
                 <div class="row">
@@ -633,9 +820,10 @@ class LgAircoPanel extends HTMLElement {
       <dialog class="bsheet"><div class="bs-backdrop"></div><div class="bs" tabindex="-1" autofocus><div class="grab"></div><div class="bs-title"></div><div class="bs-body"></div></div></dialog>`;
     const q = (s) => r.querySelector(s);
     this.$ = {
-      title: q('.title'), curv: q('.curv'), modebtn: q('.modebtn'), modelabel: q('.modelabel'), power: q('.power'),
+      title: q('.title'), curv: q('.curv'), hum: q('.hum'), humv: q('.humv'), modebtn: q('.modebtn'), modelabel: q('.modelabel'), power: q('.power'),
       target: q('.target'), tval: q('.tval'), slider: q('.slider'), minus: q('.minus'), plus: q('.plus'),
       fan: q('.fan'), fval: q('.fval'), air: q('.air'), airval: q('.airval'), grid2: q('.grid2'),
+      presetcard: q('.presetcard'), presetv: q('.presetv'),
       sleepcard: q('.sleepcard'), sleepchk: q('.sleepchk'), sleepv: q('.sleepv'),
       jet: q('.jet'), jetchk: q('.jetchk'), jetdesc: q('.jetdesc'),
       bsheet: q('.bsheet'), bstitle: q('.bs-title'), bsbody: q('.bs-body'),
@@ -662,6 +850,7 @@ class LgAircoPanel extends HTMLElement {
     q('.fprev').addEventListener('click', () => this._cycleFan(-1));
     q('.fnext').addEventListener('click', () => this._cycleFan(1));
     $.air.addEventListener('click', () => this._openSheet('air'));
+    q('.presetrow').addEventListener('click', () => this._openSheet('preset'));
     $.fan.addEventListener('click', (e) => { if (!e.target.closest('button')) this._openSheet('fan'); });
     $.sleepchk.addEventListener('change', () => {
       if ($.sleepchk.checked) { $.sleepchk.checked = false; this._openSheet('sleep'); }
@@ -694,22 +883,27 @@ class LgAircoPanel extends HTMLElement {
     $.title.textContent = c.name || a.friendly_name || c.entity;
     const unavail = !s || s.state === 'unavailable' || s.state === 'unknown';
     this.toggleAttribute('unavail', unavail);
-    if (unavail) { $.curv.textContent = lgT('unavailable'); this.toggleAttribute('on', false); $.modelabel.textContent = '–'; return; }
+    if (unavail) { $.curv.textContent = lgT('unavailable'); $.hum.hidden = true; this.toggleAttribute('on', false); $.modelabel.textContent = '–'; return; }
 
     const mode = this._mode(s);
     const on = mode !== 'off';
     const md = LG_MODES[mode] || { label: mode, flow: '#888' };
     this.toggleAttribute('on', on);
+    // thermostats report hvac_action: only show warmth/airflow while the device is really running
+    this.toggleAttribute('idle', on && ['idle', 'off'].includes(a.hvac_action));
     this.style.setProperty('--flow', on ? md.flow : 'transparent');
     $.curv.textContent = lgTemp(lgCurrentTemp(this._hass, c, s));
+    const hum = lgHumidity(this._hass, c, s);
+    $.hum.hidden = hum === null;
+    if (hum !== null) $.humv.textContent = hum;
     $.modelabel.textContent = on ? md.label : lgT('off');
-    $.modebtn.disabled = !on || mode === '__on';
+    $.modebtn.disabled = !on || mode === '__on' || LG_MODE_ORDER.filter((m) => (a.hvac_modes || []).includes(m)).length < 2;
 
     // doeltemperatuur
     const noTarget = ['fan_only', 'dry'].includes(mode) || a.temperature === undefined;
     $.target.hidden = noTarget;
     if (!noTarget) {
-      const min = lgNum(a.min_temp) ?? 16, max = lgNum(a.max_temp) ?? 30, step = lgNum(a.target_temp_step) || 1;
+      const min = lgNum(a.min_temp) ?? 16, max = lgNum(a.max_temp) ?? 30, step = lgStep(a);
       const t = this._target(s);
       $.tval.textContent = t === null ? '–' : lgTemp(t);
       $.slider.min = min; $.slider.max = max; $.slider.step = step;
@@ -740,6 +934,11 @@ class LgAircoPanel extends HTMLElement {
     else airTxt = [vs && `↕ ${LG_VSWING[vs] || vs}`, hs && `↔ ${LG_HSWING[hs] || hs}`].filter(Boolean).join('  ');
     $.airval.textContent = airTxt;
     $.grid2.classList.toggle('dim', !on);
+
+    // voorkeuze (preset), alleen als de entiteit die heeft
+    const presets = a.preset_modes || [];
+    $.presetcard.hidden = !presets.length;
+    if (presets.length) $.presetv.textContent = this._presetLabel(s, this._val('preset', a.preset_mode));
 
     // slaaptimer
     const sl = this._rs('sleep_time');
@@ -772,7 +971,7 @@ class LgAircoPanel extends HTMLElement {
       $.filterp.className = 'rv filterp' + (pct !== null && pct <= 10 ? ' red' : '');
       $.filterv.textContent = pct === null ? '' : pct <= 10 ? lgT('filter_clean') : lgT('filter_life');
     }
-    if (p) $.powerv.textContent = lgNum(p.state) === null ? '–' : `${Math.round(lgNum(p.state))} W`;
+    if (p) $.powerv.textContent = lgPowerTxt(p) !== null ? lgPowerTxt(p) : lgNum(p.state) === null ? '–' : `${Math.round(lgNum(p.state))} W`;
     if (e) $.energyv.textContent = lgNum(e.state) === null ? '–' : `${lgNum(e.state).toLocaleString(lgLoc(), { maximumFractionDigits: 1 })} kWh`;
     if (d) $.dispchk.checked = this._val('disp', d.state) === 'on';
     if (w) $.ssidv.textContent = w.state;
@@ -796,7 +995,7 @@ class LgAircoPanel extends HTMLElement {
   }
   _stepTemp(dir) {
     const s = this._st(); if (!s) return;
-    const a = s.attributes, step = lgNum(a.target_temp_step) || 1;
+    const a = s.attributes, step = lgStep(a);
     const min = lgNum(a.min_temp) ?? 16, max = lgNum(a.max_temp) ?? 30;
     const cur = this._target(s) ?? lgNum(a.current_temperature) ?? 21;
     const t = Math.min(max, Math.max(min, Math.round((cur + dir * step) / step) * step));
@@ -856,6 +1055,17 @@ class LgAircoPanel extends HTMLElement {
     this._hass.callService('smartthinq_sensors', 'set_sleep_time', { entity_id: this._config.entity, sleep_time: min })
       .then(() => this._toast(min > 0 ? lgT('sleep_set', { d: lgDur(min) }) : lgT('sleep_off')))
       .catch((err) => { this._sleepStore(null); this._update(); this._toast(lgT('sleep_failed', { e: err && err.message ? err.message : err })); });
+    this._closeSheet();
+    this._update();
+  }
+  _presetLabel(s, v) {
+    if (v === undefined || v === null) return '\u2013';
+    try { if (this._hass.formatEntityAttributeValue) return this._hass.formatEntityAttributeValue(s, 'preset_mode', v) || v; } catch (e) { /* older HA */ }
+    return v;
+  }
+  _setPreset(v) {
+    this._setPending('preset', v);
+    this._call('climate', 'set_preset_mode', { entity_id: this._config.entity, preset_mode: v }, 'preset');
     this._closeSheet();
     this._update();
   }
@@ -1012,7 +1222,8 @@ class LgAircoPanel extends HTMLElement {
     if (this._dragging) return;
     const sig = [kind, this._mode(s), (a.hvac_modes || []).join(), this._val('swing', a.swing_mode),
       this._val('hswing', a.swing_horizontal_mode), (a.swing_modes || []).join(), (a.swing_horizontal_modes || []).join(),
-      this._val('fan', a.fan_mode), (a.fan_modes || []).join(), kind === 'sleep' ? this._sleepMins() : ''].join('|');
+      this._val('fan', a.fan_mode), (a.fan_modes || []).join(), kind === 'sleep' ? this._sleepMins() : '',
+      this._val('preset', a.preset_mode), (a.preset_modes || []).join()].join('|');
     if (sig === this._sheetSig) return;
     this._sheetSig = sig;
     if (kind === 'mode') {
@@ -1025,6 +1236,14 @@ class LgAircoPanel extends HTMLElement {
           <ha-icon class="mi" icon="${LG_MODES[m].icon}" style="color:${LG_MODES[m].color}"></ha-icon>
           <span>${LG_MODES[m].label}</span></div>`).join('')}</div>`;
       $.bsbody.querySelectorAll('.opt').forEach((o) => o.addEventListener('click', () => this._setMode(o.dataset.v)));
+    } else if (kind === 'preset') {
+      $.bstitle.textContent = lgT('preset');
+      const cur = this._val('preset', a.preset_mode);
+      const list = a.preset_modes || [];
+      $.bsbody.innerHTML = `<div class="opts">${list.map((m, i) => `
+        <div class="opt ${m === cur ? 'sel' : ''}" data-i="${i}"><ha-icon class="chk" icon="mdi:check"></ha-icon>
+          <span>${lgEsc(this._presetLabel(s, m))}</span></div>`).join('')}</div>`;
+      $.bsbody.querySelectorAll('.opt').forEach((o) => o.addEventListener('click', () => this._setPreset(list[Number(o.dataset.i)])));
     } else if (kind === 'air') {
       this._renderAirSheet(a);
     } else if (kind === 'fan') {
@@ -1053,14 +1272,21 @@ ha-card.tile.unavail { opacity:.5; }
 .top { display:flex; justify-content:space-between; align-items:flex-start; }
 .u-tile.wall { width: 88px; height: 43px; margin-top: 8px; }
 .u-tile.cas { width: 52px; height: 52px; }
+.u-tile.con { width: 48px; height: 52px; }
+.u-tile.heat { width: 62px; height: 52px; }
 .u-tile .air { opacity:0; transition: opacity .3s; }
-.on .u-tile .air { opacity:1; }
+.on:not(.idle) .u-tile .air { opacity:1; }
+.u-tile .led { fill:#a39c8d; }
+.on .u-tile .led { fill: var(--air, #ff8a3d); }
 .pwr { width: 54px; height: 54px; border-radius:50%; border:none; background:#8b8c91; color:#fff; display:grid; place-items:center; cursor:pointer; padding:0; transition: background .2s, color .2s, transform .1s; flex:none; }
 .pwr ha-icon { --mdc-icon-size: 30px; }
 .pwr:active { transform: scale(.92); }
 .on .pwr { background:#eef0f7; color:#5558ea; }
 .name { font-size: 21px; font-weight: 500; margin-top: 14px; line-height: 1.2; }
-.sub { font-size: 17px; color:#d9dade; margin-top: 2px; }
+.sub { font-size: 17px; color:#d9dade; margin-top: 2px; display:flex; align-items:center; justify-content:space-between; gap: 2px 8px; flex-wrap: wrap; }
+.pw { display:inline-flex; align-items:center; gap: 1px; font-size: .86em; white-space: nowrap; }
+.pw ha-icon { --mdc-icon-size: 15px; color:#f4c542; }
+.pw[hidden] { display: none; }
 .mode { font-size: 14px; color:#b4b5bc; margin-top: 3px; display:flex; align-items:center; gap:4px; min-height: 18px; }
 .mode ha-icon { --mdc-icon-size: 16px; }
 /* smalle tegels (telefoon, halve breedte) */
@@ -1069,6 +1295,8 @@ ha-card.tile { container-type: inline-size; }
 @container (max-width: 210px) {
   .u-tile.wall { width: 64px; height: 32px; margin-top: 6px; }
   .u-tile.cas { width: 40px; height: 40px; }
+  .u-tile.con { width: 38px; height: 41px; }
+  .u-tile.heat { width: 50px; height: 42px; }
   .pwr { width: 44px; height: 44px; } .pwr ha-icon { --mdc-icon-size: 24px; }
   .name { font-size: 17px; margin-top: 10px; } .sub { font-size: 15px; } .mode { font-size: 12.5px; }
 }
@@ -1080,6 +1308,15 @@ ha-card.tile { container-type: inline-size; }
   border: var(--ha-card-border-width, 1px) solid var(--ha-card-border-color, var(--divider-color, transparent)); box-shadow: var(--ha-card-box-shadow, none); color: var(--primary-text-color, #fff); }
 :host([bg=theme]) .sub { color: var(--secondary-text-color, #d9dade); }
 :host([bg=theme]) .mode { color: var(--secondary-text-color, #b4b5bc); }
+/* achtergrond: light (lichte ThinQ-kleuren) */
+:host([bg=light]) ha-card.tile { background:#e4e6ec; color:#16171a; }
+:host([bg=light]) ha-card.tile.on { background:#fff; box-shadow: 0 2px 10px rgba(0,0,0,.10); }
+:host([bg=light]) .sub { color:#3b3d45; }
+:host([bg=light]) .mode { color:#5d5f68; }
+:host([bg=light]) .pwr { background:#b9bcc6; }
+:host([bg=light]) .on .pwr { background:#eceefb; color:#5558ea; }
+:host([bg=light]) .u-tile { filter: drop-shadow(0 1px 2px rgba(0,0,0,.28)); }
+:host([bg=light]) .pw ha-icon { color:#e0a800; }
 /* aan = lichte waas over de gekozen achtergrond */
 :host([bg=glass]) ha-card.tile.on, :host([bg=theme]) ha-card.tile.on { background-image: linear-gradient(rgba(255,255,255,.11), rgba(255,255,255,.11)); }
 `;
@@ -1097,19 +1334,19 @@ class LgAircoCard extends HTMLElement {
     const ha = document.querySelector('home-assistant');
     lgSetLang(ha && ha.hass, null);
     const L = lgLang === 'nl' ? {
-      entity: 'Airco (climate-entiteit)', name: 'Naam', layout: 'Weergave', unit: 'Afbeelding', background: 'Achtergrond', language: 'Taal',
-      temperature_sensor: 'Andere temperatuursensor (optioneel)', jet_mode: 'Extra snel (Jet mode)', display_light: 'Displayverlichting', sleep_time: 'Slaaptimer-sensor',
+      entity: 'Airco of kachel (climate-entiteit)', name: 'Naam', layout: 'Weergave', unit: 'Afbeelding', background: 'Achtergrond', language: 'Taal',
+      temperature_sensor: 'Andere temperatuursensor (optioneel)', humidity_sensor: 'Andere luchtvochtigheidssensor (optioneel)', show_power: 'Stroomverbruik op de tegel tonen', jet_mode: 'Extra snel (Jet mode)', display_light: 'Displayverlichting', sleep_time: 'Slaaptimer-sensor',
       filter: 'Filtersensor', power: 'Stroomverbruik-sensor', energy: 'Energie-sensor', ssid: 'Wifi-sensor',
-      tile: 'Tegel (opent bedieningsscherm)', full: 'Volledig bedieningsscherm', wall: 'Wandunit', cassette: 'Plafondcassette',
-      lg: 'LG ThinQ (donker)', glass: 'Glas', theme: 'Volgt het thema', auto: 'Automatisch (taal gebruiker)', extra: 'LG-onderdelen (standaard automatisch gevonden)',
+      tile: 'Tegel (opent bedieningsscherm)', full: 'Volledig bedieningsscherm', wall: 'Wandunit', console: 'Consolemodel (lage wandunit)', cassette: 'Plafondcassette', heater: 'Elektrische kachel',
+      lg: 'LG ThinQ (donker)', light: 'LG ThinQ (licht)', glass: 'Glas', theme: 'Volgt het thema', auto: 'Automatisch (taal gebruiker)', extra: 'LG-onderdelen (standaard automatisch gevonden)',
       h_temp: 'Bijvoorbeeld een gemiddelde kamertemperatuur als de sensor van de airco afwijkt.',
       h_extra: 'Laat leeg om ze automatisch op hetzelfde apparaat te zoeken.',
     } : {
-      entity: 'Air conditioner (climate entity)', name: 'Name', layout: 'Layout', unit: 'Picture', background: 'Background', language: 'Language',
-      temperature_sensor: 'Other temperature sensor (optional)', jet_mode: 'Jet mode', display_light: 'Display light', sleep_time: 'Sleep timer sensor',
+      entity: 'Air conditioner or heater (climate entity)', name: 'Name', layout: 'Layout', unit: 'Picture', background: 'Background', language: 'Language',
+      temperature_sensor: 'Other temperature sensor (optional)', humidity_sensor: 'Other humidity sensor (optional)', show_power: 'Show power use on the tile', jet_mode: 'Jet mode', display_light: 'Display light', sleep_time: 'Sleep timer sensor',
       filter: 'Filter sensor', power: 'Power sensor', energy: 'Energy sensor', ssid: 'Wi-Fi sensor',
-      tile: 'Tile (opens control screen)', full: 'Full control screen', wall: 'Wall unit', cassette: 'Ceiling cassette',
-      lg: 'LG ThinQ (dark)', glass: 'Glass', theme: 'Follow theme', auto: 'Automatic (user language)', extra: 'LG features (found automatically)',
+      tile: 'Tile (opens control screen)', full: 'Full control screen', wall: 'Wall unit', console: 'Console (low wall unit)', cassette: 'Ceiling cassette', heater: 'Electric heater',
+      lg: 'LG ThinQ (dark)', light: 'LG ThinQ (light)', glass: 'Glass', theme: 'Follow theme', auto: 'Automatic (user language)', extra: 'LG features (found automatically)',
       h_temp: "For example an average room temperature when the unit's own sensor is off.",
       h_extra: 'Leave empty to find them automatically on the same device.',
     };
@@ -1120,11 +1357,13 @@ class LgAircoCard extends HTMLElement {
         { name: 'name', selector: { text: {} } },
         { type: 'grid', name: '', schema: [
           { name: 'layout', selector: sel(['tile', 'full']) },
-          { name: 'unit', selector: sel(['wall', 'cassette']) },
-          { name: 'background', selector: sel(['lg', 'glass', 'theme']) },
-          { name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: '', label: L.auto }, { value: 'nl', label: 'Nederlands' }, { value: 'en', label: 'English' }] } } },
+          { name: 'unit', selector: sel(['wall', 'console', 'cassette', 'heater']) },
+          { name: 'background', selector: sel(['lg', 'light', 'glass', 'theme']) },
+          { name: 'language', selector: { select: { mode: 'dropdown', options: [{ value: '', label: L.auto }, { value: 'nl', label: 'Nederlands' }, { value: 'en', label: 'English' }, { value: 'de', label: 'Deutsch' }, { value: 'fr', label: 'Fran\u00e7ais' }, { value: 'es', label: 'Espa\u00f1ol' }] } } },
         ] },
+        { name: 'show_power', selector: { boolean: {} } },
         { name: 'temperature_sensor', selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
+        { name: 'humidity_sensor', selector: { entity: { domain: 'sensor', device_class: 'humidity' } } },
         { type: 'expandable', name: '', title: L.extra, schema: [
           { name: 'jet_mode', selector: { entity: { domain: 'switch' } } },
           { name: 'display_light', selector: { entity: { domain: 'switch' } } },
@@ -1146,6 +1385,7 @@ class LgAircoCard extends HTMLElement {
     }
     this._config = { layout: 'tile', unit: 'wall', ...config };
     this._built = false;
+    this._rel = null;
     if (!this.shadowRoot) this.attachShadow({ mode: 'open' });
     this.setAttribute('bg', lgBg(this._config));
     if (this._hass) this.hass = this._hass;
@@ -1155,6 +1395,7 @@ class LgAircoCard extends HTMLElement {
     this._hass = h;
     lgSetLang(h, this._config);
     if (!this._config) return;
+    if (!this._rel && h.entities) this._rel = lgRelated(h, this._config);
     if (!this._built) this._build();
     if (this._config.layout === 'full') { this._inline.hass = h; }
     else this._updateTile();
@@ -1185,7 +1426,7 @@ class LgAircoCard extends HTMLElement {
       <ha-card class="tile">
         <div class="top"><div class="ic">${lgUnitSvg(this._config.unit, 'tile')}</div>
           <button class="pwr" title="${lgT('power')}"><ha-icon icon="mdi:power"></ha-icon></button></div>
-        <div><div class="name"></div><div class="sub"></div><div class="mode"></div></div>
+        <div><div class="name"></div><div class="sub"><span class="subl"></span><span class="pw" hidden><ha-icon icon="mdi:flash"></ha-icon><span class="pwv"></span></span></div><div class="mode"></div></div>
       </ha-card>`;
     this._card = r.querySelector('ha-card');
     this._card.addEventListener('click', () => this._openPanel());
@@ -1205,12 +1446,19 @@ class LgAircoCard extends HTMLElement {
     r.querySelector('.name').textContent = name;
     const unavail = !s || s.state === 'unavailable' || s.state === 'unknown';
     this._card.classList.toggle('unavail', unavail);
-    if (unavail) { this._card.classList.remove('on'); r.querySelector('.sub').textContent = lgT('unavailable'); r.querySelector('.mode').innerHTML = ''; this._modeHtml = ''; return; }
+    if (unavail) { this._card.classList.remove('on', 'idle'); r.querySelector('.subl').textContent = lgT('unavailable'); r.querySelector('.pw').hidden = true; r.querySelector('.mode').innerHTML = ''; this._modeHtml = ''; return; }
     const mode = this._modeOf(s);
     const on = mode !== 'off';
     this._card.classList.toggle('on', on);
+    this._card.classList.toggle('idle', on && ['idle', 'off'].includes(s.attributes.hvac_action));
     this._card.style.setProperty('--air', LG_TILE_AIR[mode] || '#3cc8c0');
-    r.querySelector('.sub').textContent = lgTemp(lgCurrentTemp(this._hass, c, s));
+    const hum = lgHumidity(this._hass, c, s);
+    r.querySelector('.subl').textContent = lgTemp(lgCurrentTemp(this._hass, c, s)) + (hum !== null ? ` \u00b7 ${hum}` : '');
+    // current power use (option show_power), only while the device really uses power
+    const pst = c.show_power && this._rel && this._rel.power ? this._hass.states[this._rel.power] : null;
+    const ptxt = pst && lgNum(pst.state) > 0 ? lgPowerTxt(pst) : null;
+    r.querySelector('.pw').hidden = ptxt === null;
+    if (ptxt !== null) r.querySelector('.pwv').textContent = ptxt;
     const md = LG_MODES[mode];
     const t = lgNum(s.attributes.temperature);
     const html = on && md
@@ -1252,7 +1500,7 @@ if (!window.customCards.some((c) => c.type === 'thinq-airco-card')) {
   window.customCards.push({
     type: 'thinq-airco-card',
     name: 'ThinQ Airco Card',
-    description: 'LG air conditioner tile and controls in the style of the LG ThinQ app',
+    description: 'LG air conditioner (or electric heater) tile and controls in the style of the LG ThinQ app',
     preview: false,
     documentationURL: 'https://github.com/schmeitz/thinq-airco-card',
   });
