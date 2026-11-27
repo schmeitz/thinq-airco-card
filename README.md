@@ -118,7 +118,7 @@ unit: heater
 - De schema's uit de ThinQ-app geeft de integratie niet door; die staan dus niet op de kaart.
 - **In ontwikkeling: luchtstroom bij consolemodellen.** Bij LG-consolemodellen (lage wandunits) geeft de integratie
   de klepstand en het zwenken nog niet door aan Home Assistant. De kaart toont het luchtstroommenu daarom nog niet
-  voor deze units. Dit is gemeld bij de makers van de integratie; zodra zij het ondersteunen, verschijnt het menu vanzelf.
+  voor deze units. Dit is [gemeld bij de makers van de integratie](https://github.com/ollo69/ha-smartthinq-sensors/issues/1043); zodra zij het ondersteunen, verschijnt het menu vanzelf.
 - Vragen, wensen of een fout gevonden? Maak een [issue](https://github.com/schmeitz/thinq-airco-card/issues) aan.
 
 ---
@@ -215,7 +215,7 @@ unit: heater
 - Operation schedules from the ThinQ app are not exposed by the integration and are therefore not on the card.
 - **In development: airflow on console units.** For LG console (low wall) units the integration does not yet pass
   the vane position and swing on to Home Assistant, so the card cannot show the airflow sheet for these units yet.
-  This has been reported to the maintainers of the integration; once they support it, the sheet appears automatically.
+  This has been [reported to the maintainers of the integration](https://github.com/ollo69/ha-smartthinq-sensors/issues/1043); once they support it, the sheet appears automatically.
 - Questions, wishes or found a bug? Open an [issue](https://github.com/schmeitz/thinq-airco-card/issues).
 
 ---
